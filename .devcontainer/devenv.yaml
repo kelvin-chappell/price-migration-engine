@@ -1,0 +1,10 @@
+# Devenv project configuration
+# Edit this file to configure your project's devcontainer
+# and then run `devenv generate` to create the devcontainer.json files
+
+name: "price-migration-engine"
+
+modules:
+  - mise
+  - scala
+  - github-copilot
