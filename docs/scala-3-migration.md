@@ -42,9 +42,11 @@ Using `cohortTableCreationLambda` (the first one migrated) as the template:
    - Libraries with no transitive ZIO/upickle dependency (e.g. `munit`) are safe to declare directly.
    - Copy the `assemblyJarName` / `riffRaffPackageType` / `riffRaffManifestProjectName` / `commonAssemblyMergeStrategy` pattern from an existing subproject; give it its own jar name.
    - Add the new subproject to `priceMigrationEngine`'s `.aggregate(...)`.
-3. **Update `lambda/cfn.yaml`**: change the migrated function's `Code.S3Key` to the new jar's path
+3. **Update the deploying `cfn.yaml`**: change the migrated function's `Code.S3Key` to the new jar's path
    (`membership/${Stage}/<new-project-name>/<new-project-name>.jar`, matching the `name := ...` setting).
-   The `Handler` class path doesn't need to change.
+   The `Handler` class path doesn't need to change. Most handlers' `AWS::Lambda::Function` resources live in
+   `lambda/cfn.yaml`, but check first - e.g. `MigrationHandler`'s is in `stateMachine/cfn/cfn.yaml` instead
+   (it's kicked off by a schedule rather than the step function, and deployed alongside the state machine).
 4. **Fix any Scala 3 compile errors** in the handler itself (there weren't any for `CohortTableCreationHandler`;
    watch out for old-style wildcard imports if `-source` is set stricter than the default, and for anything
    relying on Scala 2 macros).

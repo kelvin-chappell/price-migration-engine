@@ -9,7 +9,7 @@ import zio.{Runtime, ZIO, ZIOAppArgs, ZIOAppDefault}
   */
 object MigrationHandler extends ZIOAppDefault with RequestHandler[Unit, Unit] {
 
-  private val migrateActiveCohorts: ZIO[CohortSpecTable with CohortStateMachine with Logging, Failure, Unit] =
+  val migrateActiveCohorts: ZIO[CohortSpecTable with CohortStateMachine with Logging, Failure, Unit] =
     (for {
       cohortSpecs <- CohortSpecTable.fetchAll.tap(specs => Logging.info(s"Currently ${specs.size} active cohorts"))
       _ <- ZIO.foreachDiscard(cohortSpecs)(CohortStateMachine.startExecution)
