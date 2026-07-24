@@ -358,43 +358,15 @@ object NotificationHandler extends CohortHandler {
 
   // The digital migrations' notification window is from -33 (included) to -31 (excluded)
 
-  def maxLeadTime(cohortSpec: CohortSpec): Int = {
-    MigrationType(cohortSpec) match {
-      case Test1                  => 35
-      case GuardianWeekly2025     => GuardianWeekly2025Migration.maxLeadTime
-      case Newspaper2025P1        => Newspaper2025P1Migration.maxLeadTime
-      case Newspaper2025P3        => Newspaper2025P3Migration.maxLeadTime
-      case ProductMigration2025N4 => ProductMigration2025N4Migration.maxLeadTime
-      case Membership2025         => Membership2025Migration.maxLeadTime
-      case DigiSubs2025           => DigiSubs2025Migration.maxLeadTime
-      case SupporterPlus2026      => SupporterPlus2026Migration.maxLeadTime
-    }
-  }
+  // maxLeadTime, minLeadTime and thereIsEnoughNotificationLeadTime now live in
+  // pricemigrationengine.model.NotificationLeadTime (imported above via `pricemigrationengine.model._`), so that
+  // core code (e.g. AmendmentEffectiveDateCalculator) can use them without depending on this handlers module.
+  def maxLeadTime(cohortSpec: CohortSpec): Int = NotificationLeadTime.maxLeadTime(cohortSpec)
 
-  def minLeadTime(cohortSpec: CohortSpec): Int = {
-    MigrationType(cohortSpec) match {
-      case Test1                  => 33
-      case GuardianWeekly2025     => GuardianWeekly2025Migration.minLeadTime
-      case Newspaper2025P1        => Newspaper2025P1Migration.minLeadTime
-      case Newspaper2025P3        => Newspaper2025P3Migration.minLeadTime
-      case ProductMigration2025N4 => ProductMigration2025N4Migration.minLeadTime
-      case Membership2025         => Membership2025Migration.minLeadTime
-      case DigiSubs2025           => DigiSubs2025Migration.minLeadTime
-      case SupporterPlus2026      => SupporterPlus2026Migration.minLeadTime
-    }
-  }
+  def minLeadTime(cohortSpec: CohortSpec): Int = NotificationLeadTime.minLeadTime(cohortSpec)
 
-  def thereIsEnoughNotificationLeadTime(cohortSpec: CohortSpec, today: LocalDate, cohortItem: CohortItem): Boolean = {
-    // To help with backward compatibility with existing tests, we apply this condition from 1st Dec 2020.
-    if (today.isBefore(LocalDate.of(2020, 12, 1))) {
-      true
-    } else {
-      cohortItem.amendmentEffectiveDate match {
-        case Some(sd) => today.plusDays(minLeadTime(cohortSpec)).isBefore(sd)
-        case _        => false
-      }
-    }
-  }
+  def thereIsEnoughNotificationLeadTime(cohortSpec: CohortSpec, today: LocalDate, cohortItem: CohortItem): Boolean =
+    NotificationLeadTime.thereIsEnoughNotificationLeadTime(cohortSpec, today, cohortItem)
 
   // -------------------------------------------------------------------
   // Support Functions

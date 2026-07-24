@@ -1,6 +1,5 @@
 package pricemigrationengine.model
 
-import pricemigrationengine.handlers.NotificationHandler
 import pricemigrationengine.migrations.{
   GuardianWeekly2025Migration,
   Newspaper2025P1Migration,
@@ -60,7 +59,7 @@ object AmendmentEffectiveDateCalculator {
     Date.datesMax(
       cohortSpec.earliestAmendmentEffectiveDate,
       today.plusDays(
-        NotificationHandler.minLeadTime(cohortSpec: CohortSpec) + 1
+        NotificationLeadTime.minLeadTime(cohortSpec: CohortSpec) + 1
       ) // +1 because we need to be strictly over minLeadTime days away. Exactly minLeadTime is not enough.
     )
   }

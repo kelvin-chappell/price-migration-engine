@@ -4,19 +4,20 @@
 
 The codebase is structured to keep a clear separation between [pure](https://docs.scala-lang.org/scala3/book/fp-pure-functions.html) and [effectful](https://en.wikipedia.org/wiki/Side_effect_(computer_science)) code. (*Effectful* has different meanings, but I mean by it having side-effects or not pure.)
 
-The [model](../lambda/src/main/scala/pricemigrationengine/model) package holds all the pure code in the project. All code here is deterministic. It neither generates nor depends on any kind of real-world effect; including random numbers, relative dates, logging or printing to console.
+The [model](../core/src/main/scala/pricemigrationengine/model) package holds all the pure code in the project. All code here is deterministic. It neither generates nor depends on any kind of real-world effect; including random numbers, relative dates, logging or printing to console.
 
-The effects of the code are generated and consumed through [services](../lambda/src/main/scala/pricemigrationengine/services), following the [ZIO convention](https://zio.dev). Each service has a type, an interface and at least one implementation. For example, the [Zuora type](../lambda/src/main/scala/pricemigrationengine/services/Zuora.scala), and
-[live implementation](../lambda/src/main/scala/pricemigrationengine/services/ZuoraLive.scala).
+The effects of the code are generated and consumed through [services](../core/src/main/scala/pricemigrationengine/services), following the [ZIO convention](https://zio.dev). Each service has a type, an interface and at least one implementation. For example, the [Zuora type](../core/src/main/scala/pricemigrationengine/services/Zuora.scala), and
+[live implementation](../core/src/main/scala/pricemigrationengine/services/ZuoraLive.scala).
 
 These services are composed together into ZIO vertical and horizontal [layers](https://github.com/zio/zio/blob/master/docs/datatypes/zlayer.md), and these layers form the runtime environment for each of the lambdas by compile-time dependency injection. A vertical layer is one in which one service depends on another: they are related together by the `>>>` operator. In a horizontal layer, two peer services are related together by the `++` operator. For a more detailed explanation of how these layers work, see the [ZIO documentation](https://zio.dev/reference/contextual/zlayer/).
 
-The lambdas are all in the [handlers](../lambda/src/main/scala/pricemigrationengine/handlers) package.
+Most of the lambdas are in the [lambda](../lambda/src/main/scala/pricemigrationengine/handlers) module's `handlers` package. Lambdas that have been migrated to Scala 3 live in their own sbt subproject instead (e.g. [cohortTableCreationLambda](../cohortTableCreationLambda)) - see [scala-3-migration.md](scala-3-migration.md) for why, and for the recipe to migrate the next one.
 
 All the [dependencies](../project/Dependencies.scala) of the project have been chosen for their light weight and minimal number of transitive dependencies, so that the artefact generated is of minimal size and lambdas can warm up quickly.
 
-The same generated jar is used by all the lambdas. The only variation in their deployment is the configuration of the
-main endpoint.
+Most lambdas share the same generated jar (`lambda`'s). Lambdas migrated to Scala 3 are built into their own jar
+instead (see [scala-3-migration.md](scala-3-migration.md)). The only variation in a lambda's deployment is the
+`Code.S3Key`/`Handler` configuration of its `AWS::Lambda::Function` resource in `cfn.yaml`.
 
 ### To run lambdas locally in Intellij
 
