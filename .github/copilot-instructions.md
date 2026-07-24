@@ -21,10 +21,11 @@ Scala side (sbt 1.x, Java Corretto 25, Scala 2.13 / Scala 3 mixed):
 - **`coreScala3`** — the same `core/` sources, compiled separately under Scala 3 for lambdas migrated to Scala 3
   (ZIO's macro-derived implicits mean Scala 2.13/3 builds can't share a classpath). See
   [docs/scala-3-migration.md](../docs/scala-3-migration.md) before touching `core` or migrating another lambda.
-- **`lambda`** — most of the AWS Lambda handlers, sharing one fat jar. Depends on `core`.
+- **`lambda`** — remaining handlers not yet migrated (`AmendmentHandler`, `EstimationHandler`, `NotificationHandler`,
+  `SalesforcePriceRiseCreationHandler`), sharing one fat jar. Depends on `core`.
 - **`cohortTableCreationLambda`**, **`migrationLambda`**, **`subscriptionIdUploadLambda`**,
-  **`salesforceNotificationDateUpdateLambda`** — handlers migrated to Scala 3 so far, each its own
-  subproject/jar. Depends on `coreScala3`.
+  **`salesforceNotificationDateUpdateLambda`**, **`salesforceAmendmentUpdateLambda`** — handlers migrated to
+  Scala 3 so far, each its own subproject/jar. Depends on `coreScala3`.
 - **`dynamoDb`** / **`stateMachine`** — CloudFormation only, no application code.
 
 Each lambda is an `AWS::Lambda::Function` resource in `lambda/cfn.yaml` (except `MigrationHandler`, deployed via

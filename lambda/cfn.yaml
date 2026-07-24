@@ -528,7 +528,7 @@ Resources:
         !Sub price-migration-engine-salesforce-amendment-update-lambda-${Stage}
       Code:
         S3Bucket: membership-dist
-        S3Key: !Sub membership/${Stage}/price-migration-engine-lambda/price-migration-engine-lambda.jar
+        S3Key: !Sub membership/${Stage}/price-migration-engine-salesforce-amendment-update-lambda/price-migration-engine-salesforce-amendment-update-lambda.jar
       Handler: pricemigrationengine.handlers.SalesforceAmendmentUpdateHandler::handleRequest
       Environment:
         Variables:

@@ -10,7 +10,7 @@ import zio.{Clock, ZIO}
 object SalesforceAmendmentUpdateHandler extends CohortHandler {
 
   private val batchSize = 2000
-  private def main(
+  def main(
       cohortSpec: CohortSpec
   ): ZIO[CohortTable with SalesforceClient with Logging, Failure, HandlerOutput] =
     for {
