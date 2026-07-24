@@ -52,7 +52,11 @@ Using `cohortTableCreationLambda` (the first one migrated) as the template:
    relying on Scala 2 macros).
 5. **Add/port tests** for the handler in the new subproject's test source set. Since this module intentionally
    doesn't depend on `zio-test`/`zio-mock` (see point 2), write handler tests with plain `munit` + a manually
-   run `zio.Runtime` (see `CohortTableCreationHandlerTest` for the pattern) rather than `zio.test`.
+   run `zio.Runtime` (see `CohortTableCreationHandlerTest` for the pattern) rather than `zio.test`. If the
+   handler already had a test written with plain `munit` (some do, e.g. `SubscriptionIdUploadHandlerTest`), it
+   usually ports over unchanged aside from swapping any `core`-test-only helper (e.g. `TestLogging`, which isn't
+   available to a `coreScala3`-only project) for the thing it wraps directly (e.g. `ConsoleLogging.impl(...)`).
+   Move any test resources the test loads (e.g. under `src/test/resources`) into the new subproject too.
 6. **Validate**: `sbt scalafmtCheckAll` (the new subproject's sources are covered by the `scala3` dialect
    `fileOverride` in `.scalafmt.conf`), `sbt test`, `sbt assembly` - confirm the new jar contains only the
    migrated handler's classes and the old `lambda` jar no longer does.

@@ -1,6 +1,5 @@
 package pricemigrationengine.handlers
 
-import pricemigrationengine.TestLogging
 import pricemigrationengine.model._
 import pricemigrationengine.services._
 import pricemigrationengine.model.Runner
@@ -72,7 +71,7 @@ class SubscriptionIdUploadHandlerTest extends munit.FunSuite {
             )
           )
           .provideLayer(
-            TestLogging.logging ++ stubConfiguration ++ stubCohortTable ++ stubS3
+            ConsoleLogging.impl("TestCohort") ++ stubConfiguration ++ stubCohortTable ++ stubS3
           )
       ),
       Success(HandlerOutput(isComplete = true))
