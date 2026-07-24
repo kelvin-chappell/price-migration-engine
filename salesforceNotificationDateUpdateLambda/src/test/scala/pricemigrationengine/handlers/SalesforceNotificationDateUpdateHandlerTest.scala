@@ -1,14 +1,12 @@
 package pricemigrationengine.handlers
 
-import pricemigrationengine.TestLogging
 import pricemigrationengine.model.CohortTableFilter.{NotificationSendComplete, NotificationSendDateWrittenToSalesforce}
 import pricemigrationengine.model._
 import pricemigrationengine.services._
 import zio.Exit.Success
 import zio.Runtime.default
 import zio.stream.ZStream
-import zio.test.{TestClock, testEnvironment}
-import zio.{IO, ZIO, ZLayer}
+import zio.{Clock, IO, UIO, ZIO, ZLayer}
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.collection.mutable.ArrayBuffer
@@ -79,6 +77,11 @@ class SalesforceNotificationDateUpdateHandlerTest extends munit.FunSuite {
     )
   }
 
+  private def stubClock(fixedInstant: Instant): Clock = new Clock {
+    export Clock.ClockLive.{instant as _, *}
+    override def instant(implicit trace: zio.Trace): UIO[Instant] = ZIO.succeed(fixedInstant)
+  }
+
   test("SalesforceNotificationDateUpdateHandler should write whenNotificationSentWrittenToSalesforce to salesforce") {
     val updatedPriceRises = ArrayBuffer[SalesforcePriceRise]()
     val stubSalesforceClient = stubSFClient(updatedPriceRises)
@@ -98,12 +101,10 @@ class SalesforceNotificationDateUpdateHandlerTest extends munit.FunSuite {
 
     assertEquals(
       Runner.unsafeRunSync(default)(
-        (for {
-          _ <- TestClock.setTime(currentTime)
-          program <- SalesforceNotificationDateUpdateHandler.main(cohortSpec)
-        } yield program).provideLayer(
-          testEnvironment ++ TestLogging.logging ++ stubCohortTable ++ stubSalesforceClient
-        )
+        SalesforceNotificationDateUpdateHandler
+          .main(cohortSpec)
+          .withClock(stubClock(currentTime))
+          .provideLayer(ConsoleLogging.impl("TestCohort") ++ stubCohortTable ++ stubSalesforceClient)
       ),
       Success(HandlerOutput(isComplete = true))
     )

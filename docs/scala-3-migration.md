@@ -56,7 +56,21 @@ Using `cohortTableCreationLambda` (the first one migrated) as the template:
    handler already had a test written with plain `munit` (some do, e.g. `SubscriptionIdUploadHandlerTest`), it
    usually ports over unchanged aside from swapping any `core`-test-only helper (e.g. `TestLogging`, which isn't
    available to a `coreScala3`-only project) for the thing it wraps directly (e.g. `ConsoleLogging.impl(...)`).
-   Move any test resources the test loads (e.g. under `src/test/resources`) into the new subproject too.
+   Move any test resources the test loads (e.g. under `src/test/resources`) into the new subproject too. If a
+   test uses `zio.test.TestClock`/`zio.test.testEnvironment` to control `Clock.instant` (etc.) for a fixed-time
+   assertion, replace it with a hand-rolled `Clock` implementation and `ZIO#withClock`, e.g.:
+   ```scala
+   def stubClock(fixedInstant: Instant): Clock = new Clock {
+     export Clock.ClockLive.{instant as _, *}
+     override def instant(implicit trace: zio.Trace): UIO[Instant] = ZIO.succeed(fixedInstant)
+   }
+   // ...
+   handler.main(input).withClock(stubClock(fixedInstant)).provideLayer(...)
+   ```
+   (see `SalesforceNotificationDateUpdateHandlerTest`). The Scala 3 `export ... {member as _, *}` clause
+   delegates every other `Clock` method to the real `Clock.ClockLive`, so only the overridden method needs
+   reimplementing. Avoid naming the fixed instant the same as any exported member (e.g. `currentTime`) - it'll
+   shadow the export and cause an "ambiguous overload" error.
 6. **Validate**: `sbt scalafmtCheckAll` (the new subproject's sources are covered by the `scala3` dialect
    `fileOverride` in `.scalafmt.conf`), `sbt test`, `sbt assembly` - confirm the new jar contains only the
    migrated handler's classes and the old `lambda` jar no longer does.
