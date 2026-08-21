@@ -56,7 +56,7 @@ object CohortTableDdlLive {
             .billingMode(PAY_PER_REQUEST)
             .build()
 
-          dynamoDbClient.createTable(createRequest).mapError(e => CohortTableCreateFailure(e.toString))
+          ZIO.attempt(dynamoDbClient.createTable(createRequest)).mapError(e => CohortTableCreateFailure(e.toString))
         }
 
         private def enableContinuousBackups(tableName: String) = {
@@ -67,8 +67,8 @@ object CohortTableDdlLive {
             )
             .build()
 
-          val result = dynamoDbClient
-            .updateContinuousBackups(enableBackups)
+          val result = ZIO
+            .attempt(dynamoDbClient.updateContinuousBackups(enableBackups))
             .tapError(_ => ZIO.succeed(logging.info(s"Waiting to enable continuous backups ...")))
             .retry(
               exponential(1.second) && recurs(8)
@@ -81,8 +81,8 @@ object CohortTableDdlLive {
           val tableName = cohortSpec.tableName(stageConfig.stage)
           for {
             // if table can be described, it must already exist and therefore not need to be created
-            result <- dynamoDbClient
-              .describeTable(tableName)
+            result <- ZIO
+              .attempt(dynamoDbClient.describeTable(tableName))
               .foldZIO(_ => create(tableName).map(Some(_)), _ => ZIO.none)
             _ <- enableContinuousBackups(tableName)
           } yield result

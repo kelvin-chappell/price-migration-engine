@@ -8,7 +8,7 @@ import software.amazon.awssdk.services.dynamodb.model._
 import zio.Exit.Success
 import zio.Runtime.default
 import zio.stream.ZSink
-import zio.{Chunk, Task, ZIO, ZLayer}
+import zio.{Chunk, ZIO, ZLayer}
 
 import java.util
 import scala.jdk.CollectionConverters._
@@ -29,19 +29,19 @@ class DynamoDBZIOLiveTest extends munit.FunSuite {
     )
     val stubDynamoDBClient = ZLayer.succeed(
       new DynamoDBClient {
-        def query(queryRequest: QueryRequest): Task[QueryResponse] = ZIO.succeed(responseMap(queryRequest))
+        def query(queryRequest: QueryRequest): QueryResponse = responseMap(queryRequest)
 
-        def scan(scanRequest: ScanRequest): Task[ScanResponse] = ???
+        def scan(scanRequest: ScanRequest): ScanResponse = ???
 
-        def updateItem(updateRequest: UpdateItemRequest): Task[UpdateItemResponse] = ???
+        def updateItem(updateRequest: UpdateItemRequest): UpdateItemResponse = ???
 
-        def createItem(createRequest: PutItemRequest, keyName: String): Task[PutItemResponse] = ???
+        def createItem(createRequest: PutItemRequest, keyName: String): PutItemResponse = ???
 
-        def describeTable(tableName: String): Task[DescribeTableResponse] = ???
+        def describeTable(tableName: String): DescribeTableResponse = ???
 
-        def createTable(request: CreateTableRequest): Task[CreateTableResponse] = ???
+        def createTable(request: CreateTableRequest): CreateTableResponse = ???
 
-        def updateContinuousBackups(request: UpdateContinuousBackupsRequest): Task[UpdateContinuousBackupsResponse] =
+        def updateContinuousBackups(request: UpdateContinuousBackupsRequest): UpdateContinuousBackupsResponse =
           ???
       }
     )
@@ -82,25 +82,24 @@ class DynamoDBZIOLiveTest extends munit.FunSuite {
     val stubDynamoDBClient = ZLayer.succeed(
       new DynamoDBClient {
 
-        override def query(queryRequest: QueryRequest): Task[QueryResponse] = ???
+        override def query(queryRequest: QueryRequest): QueryResponse = ???
 
-        override def scan(scanRequest: ScanRequest): Task[ScanResponse] = ???
+        override def scan(scanRequest: ScanRequest): ScanResponse = ???
 
-        override def updateItem(updateItemRequest: UpdateItemRequest): Task[UpdateItemResponse] =
-          ZIO.succeed {
-            receivedUpdateItemRequest = Some(updateItemRequest)
-            UpdateItemResponse.builder.build()
-          }
+        override def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResponse = {
+          receivedUpdateItemRequest = Some(updateItemRequest)
+          UpdateItemResponse.builder.build()
+        }
 
-        override def createItem(createRequest: PutItemRequest, keyName: String): Task[PutItemResponse] = ???
+        override def createItem(createRequest: PutItemRequest, keyName: String): PutItemResponse = ???
 
-        override def describeTable(tableName: String): Task[DescribeTableResponse] = ???
+        override def describeTable(tableName: String): DescribeTableResponse = ???
 
-        override def createTable(request: CreateTableRequest): Task[CreateTableResponse] = ???
+        override def createTable(request: CreateTableRequest): CreateTableResponse = ???
 
         override def updateContinuousBackups(
             request: UpdateContinuousBackupsRequest
-        ): Task[UpdateContinuousBackupsResponse] =
+        ): UpdateContinuousBackupsResponse =
           ???
       }
     )

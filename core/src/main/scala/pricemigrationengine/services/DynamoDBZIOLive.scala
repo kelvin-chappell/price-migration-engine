@@ -45,13 +45,10 @@ object DynamoDBZIOLive {
         private def sendQueryRequest(
             queryRequest: QueryRequest
         ): ZIO[Any, DynamoDBZIOError, QueryResponse] = {
-          for {
-            _ <- ZIO.succeed(logging.info(s"Starting query: $queryRequest"))
-            results <-
-              dynamoDbClient
-                .query(queryRequest)
-                .mapError(ex => DynamoDBZIOError(s"Failed to execute query $queryRequest : $ex"))
-          } yield results
+          logging.info(s"Starting query: $queryRequest")
+          ZIO
+            .attempt(dynamoDbClient.query(queryRequest))
+            .mapError(ex => DynamoDBZIOError(s"Failed to execute query $queryRequest : $ex"))
         }
 
         override def scan[A](query: ScanRequest)(implicit
@@ -83,26 +80,25 @@ object DynamoDBZIOLive {
         private def sendScanRequest(
             queryRequest: ScanRequest
         ): ZIO[Any, DynamoDBZIOError, ScanResponse] = {
-          for {
-            _ <- ZIO.succeed(logging.info(s"Starting scan: $queryRequest"))
-            results <-
-              dynamoDbClient
-                .scan(queryRequest)
-                .mapError(ex => DynamoDBZIOError(s"Failed to execute scan $queryRequest : $ex"))
-          } yield results
+          logging.info(s"Starting scan: $queryRequest")
+          ZIO
+            .attempt(dynamoDbClient.scan(queryRequest))
+            .mapError(ex => DynamoDBZIOError(s"Failed to execute scan $queryRequest : $ex"))
         }
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] =
-          dynamoDbClient
-            .updateItem(
-              UpdateItemRequest.builder
-                .tableName(table)
-                .key(keySerializer.serialise(key))
-                .attributeUpdates(valueSerializer.serialise(value))
-                .build()
+          ZIO
+            .attempt(
+              dynamoDbClient.updateItem(
+                UpdateItemRequest.builder
+                  .tableName(table)
+                  .key(keySerializer.serialise(key))
+                  .attributeUpdates(valueSerializer.serialise(value))
+                  .build()
+              )
             )
             .mapBoth(
               ex => DynamoDBZIOError(s"Failed to write value '$value' to '$table': $ex"),
@@ -112,8 +108,13 @@ object DynamoDBZIOLive {
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] =
-          dynamoDbClient
-            .createItem(PutItemRequest.builder.tableName(table).item(valueSerializer.serialise(value)).build(), keyName)
+          ZIO
+            .attempt(
+              dynamoDbClient.createItem(
+                PutItemRequest.builder.tableName(table).item(valueSerializer.serialise(value)).build(),
+                keyName
+              )
+            )
             .mapError(ex => DynamoDBZIOError(s"Failed to write value '$value' to '$table': $ex", Some(ex)))
             .unit
       }

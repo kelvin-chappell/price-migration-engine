@@ -20,8 +20,8 @@ object CohortSpecTableLive {
       override val fetchAll: IO[Failure, Set[CohortSpec]] = {
         val scanRequest = ScanRequest.builder.tableName(s"$tableNamePrefix-${stageConfig.stage}").build()
         (for {
-          scanResult <- dynamoDbClient
-            .scan(scanRequest)
+          scanResult <- ZIO
+            .attempt(dynamoDbClient.scan(scanRequest))
             .mapError(e => CohortSpecFetchFailure(s"Failed to fetch cohort specs: $e"))
           specs <- ZIO.foreach(scanResult.items.asScala.toList)(result =>
             ZIO
