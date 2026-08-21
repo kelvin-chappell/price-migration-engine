@@ -5,7 +5,6 @@ import pricemigrationengine.model._
 import pricemigrationengine.services._
 import zio.Exit.Success
 import zio.Runtime.default
-import zio.stream.ZStream
 import zio.{Clock, IO, UIO, ZIO, ZLayer}
 
 import java.time.{Instant, LocalDate, ZoneOffset}
@@ -27,19 +26,19 @@ class SalesforceNotificationDateUpdateHandlerTest extends munit.FunSuite {
         override def fetch(
             filter: CohortTableFilter,
             latestAmendmentEffectiveDateInclusive: Option[LocalDate]
-        ): ZStream[Any, CohortFetchFailure, CohortItem] = {
+        ): Iterator[Either[CohortFetchFailure, CohortItem]] = {
           assertEquals(filter, NotificationSendComplete)
-          ZStream(cohortItem)
+          Iterator(Right(cohortItem))
         }
 
-        override def create(cohortItem: CohortItem): ZIO[Any, Failure, Unit] = ???
+        override def create(cohortItem: CohortItem): Either[Failure, Unit] = ???
 
-        override def update(result: CohortItem): ZIO[Any, CohortUpdateFailure, Unit] = {
+        override def update(result: CohortItem): Either[CohortUpdateFailure, Unit] = {
           updatedResultsWrittenToCohortTable.addOne(result)
-          ZIO.succeed(())
+          Right(())
         }
 
-        override def fetchAll(): ZStream[Any, CohortFetchFailure, CohortItem] = ???
+        override def fetchAll(): Iterator[Either[CohortFetchFailure, CohortItem]] = ???
       }
     )
   }

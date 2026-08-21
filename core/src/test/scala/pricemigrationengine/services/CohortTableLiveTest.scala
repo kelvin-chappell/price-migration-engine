@@ -1,12 +1,10 @@
-package pricemigrationengine.model
+package pricemigrationengine.services
 
+import pricemigrationengine.TestLogging
 import pricemigrationengine.model.CohortTableFilter.ReadyForEstimation
-import pricemigrationengine.services._
+import pricemigrationengine.model._
 import software.amazon.awssdk.services.dynamodb.model.AttributeAction.PUT
 import software.amazon.awssdk.services.dynamodb.model._
-import zio.Exit.Success
-import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, IO, Runtime, ZIO, ZLayer}
 
 import java.time.ZoneOffset.UTC
 import java.time.format.DateTimeFormatter.ISO_DATE_TIME
@@ -14,6 +12,9 @@ import java.time.{Instant, LocalDate}
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
+/** Direct-style tests for `CohortTableLive.instance`, calling it directly (no `unsafeRunSync`/ZIO `Runtime`) -
+  * see docs/direct-style-migration.md.
+  */
 class CohortTableLiveTest extends munit.FunSuite {
 
   private val cohortSpec = CohortSpec(
@@ -21,8 +22,8 @@ class CohortTableLiveTest extends munit.FunSuite {
     earliestAmendmentEffectiveDate = LocalDate.of(2020, 1, 1)
   )
 
-  val stubCohortTableConfiguration = ZLayer.succeed(CohortTableConfig(10))
-  val stubStageConfiguration = ZLayer.succeed(StageConfig("DEV"))
+  private val cohortTableConfig = CohortTableConfig(10)
+  private val stageConfig = StageConfig("DEV")
 
   val tableName = "PriceMigration-DEV-name"
   val subscriptionId = "subscription-id"
@@ -43,52 +44,57 @@ class CohortTableLiveTest extends munit.FunSuite {
   val item1 = CohortItem("subscription-1", ReadyForEstimation)
   val item2 = CohortItem("subscription-2", ReadyForEstimation)
 
+  private def stubDynamoDb(
+      queryResult: (QueryRequest, DynamoDBDeserialiser[_]) => Iterator[Either[DynamoDbError, Any]] = (_, _) => ???,
+      updateResponse: (String, Any, Any, DynamoDBSerialiser[_], DynamoDBUpdateSerialiser[_]) => Either[
+        DynamoDbError,
+        Unit
+      ] = (_, _, _, _, _) => ???,
+      createResponse: (String, String, Any, DynamoDBSerialiser[_]) => Either[DynamoDbError, Unit] = (_, _, _, _) => ???
+  ): DynamoDb =
+    new DynamoDb {
+      override def query[A](q: QueryRequest)(using
+          deserializer: DynamoDBDeserialiser[A]
+      ): Iterator[
+        Either[DynamoDbError, A]
+      ] =
+        queryResult(q, deserializer).asInstanceOf[Iterator[Either[DynamoDbError, A]]]
+
+      override def scan[A](q: ScanRequest)(using
+          deserializer: DynamoDBDeserialiser[A]
+      ): Iterator[
+        Either[DynamoDbError, A]
+      ] = ???
+
+      override def update[A, B](table: String, key: A, value: B)(using
+          keySerializer: DynamoDBSerialiser[A],
+          valueSerializer: DynamoDBUpdateSerialiser[B]
+      ): Either[DynamoDbError, Unit] =
+        updateResponse(table, key, value, keySerializer, valueSerializer)
+
+      override def create[A](table: String, keyName: String, value: A)(using
+          valueSerializer: DynamoDBSerialiser[A]
+      ): Either[DynamoDbError, Unit] =
+        createResponse(table, keyName, value, valueSerializer)
+    }
+
+  private def formatTimestamp(instant: Instant) = ISO_DATE_TIME.format(instant.atZone(UTC))
+
   test("Query the PriceMigrationEngine with the correct filter and parse the results") {
     var receivedRequest: Option[QueryRequest] = None
     var receivedDeserialiser: Option[DynamoDBDeserialiser[CohortItem]] = None
 
-    val stubDynamoDb = ZLayer.succeed(
-      new DynamoDb {
+    val dynamoDb = stubDynamoDb(queryResult = (query, deserializer) => {
+      receivedDeserialiser = Some(deserializer.asInstanceOf[DynamoDBDeserialiser[CohortItem]])
+      receivedRequest = Some(query)
+      Iterator(item1, item2).map(Right(_))
+    })
 
-        override def query[A](
-            query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): Iterator[Either[DynamoDbError, A]] = {
-          receivedDeserialiser = Some(deserializer.asInstanceOf[DynamoDBDeserialiser[CohortItem]])
-          receivedRequest = Some(query)
-          Iterator(item1, item2).map(item => Right(item.asInstanceOf[A]))
-        }
+    val cohortTable =
+      CohortTableLive.instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, TestLogging.instance)
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-      }
-    )
-
-    assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        for {
-          resultList <- CohortTable
-            .fetch(ReadyForEstimation, None)
-            .provideLayer(
-              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging.impl(
-                "TestCohort"
-              ) >>> CohortTableLive.impl(cohortSpec)
-            )
-            .run(ZSink.collectAll[CohortItem])
-          _ = assertEquals(resultList, Chunk(item1, item2))
-        } yield ()
-      ),
-      Success(())
-    )
+    val resultList = cohortTable.fetch(ReadyForEstimation, None).toList
+    assertEquals(resultList, List(Right(item1), Right(item2)))
 
     assertEquals(receivedRequest.get.tableName, tableName)
     assertEquals(receivedRequest.get.indexName, "ProcessingStageIndexV2")
@@ -139,51 +145,21 @@ class CohortTableLiveTest extends munit.FunSuite {
       )
     )
   }
+
   test("Query the PriceMigrationEngine with the correct index for date range queries") {
     var receivedRequest: Option[QueryRequest] = None
     val expectedLatestDate = LocalDate.now()
 
-    val stubDynamoDb = ZLayer.succeed(
-      new DynamoDb {
+    val dynamoDb = stubDynamoDb(queryResult = (query, _) => {
+      receivedRequest = Some(query)
+      Iterator(item1).map(Right(_))
+    })
 
-        override def query[A](
-            query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): Iterator[Either[DynamoDbError, A]] = {
-          receivedRequest = Some(query)
-          Iterator(item1).map(item => Right(item.asInstanceOf[A]))
-        }
+    val cohortTable =
+      CohortTableLive.instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, TestLogging.instance)
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-      }
-    )
-
-    assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        for {
-          resultList <- CohortTable
-            .fetch(ReadyForEstimation, Some(expectedLatestDate))
-            .provideLayer(
-              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging.impl(
-                "TestCohort"
-              ) >>> CohortTableLive.impl(cohortSpec)
-            )
-            .run(ZSink.collectAll[CohortItem])
-          _ = assertEquals(resultList, Chunk(item1))
-        } yield ()
-      ),
-      Success(())
-    )
+    val resultList = cohortTable.fetch(ReadyForEstimation, Some(expectedLatestDate)).toList
+    assertEquals(resultList, List(Right(item1)))
 
     assertEquals(receivedRequest.get.tableName, tableName)
     assertEquals(receivedRequest.get.indexName, "ProcessingStageAndDateIndexV1")
@@ -207,34 +183,17 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedKeySerialiser: Option[DynamoDBSerialiser[CohortTableKey]] = None
     var receivedValueSerialiser: Option[DynamoDBUpdateSerialiser[CohortItem]] = None
 
-    val stubDynamoDb = ZLayer.succeed(
-      new DynamoDb {
+    val dynamoDb = stubDynamoDb(updateResponse = (table, key, value, keySerializer, valueSerializer) => {
+      tableUpdated = Some(table)
+      receivedKey = Some(key.asInstanceOf[CohortTableKey])
+      receivedUpdate = Some(value.asInstanceOf[CohortItem])
+      receivedKeySerialiser = Some(keySerializer.asInstanceOf[DynamoDBSerialiser[CohortTableKey]])
+      receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
+      Right(())
+    })
 
-        override def query[A](query: QueryRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): Either[DynamoDbError, Unit] = {
-          tableUpdated = Some(table)
-          receivedKey = Some(key.asInstanceOf[CohortTableKey])
-          receivedUpdate = Some(value.asInstanceOf[CohortItem])
-          receivedKeySerialiser = Some(keySerializer.asInstanceOf[DynamoDBSerialiser[CohortTableKey]])
-          receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
-          Right(())
-        }
-
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-      }
-    )
+    val cohortTable =
+      CohortTableLive.instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, TestLogging.instance)
 
     val cohortItem = CohortItem(
       subscriptionName = subscriptionId,
@@ -254,18 +213,7 @@ class CohortTableLiveTest extends munit.FunSuite {
       whenNotificationSentWrittenToSalesforce = Some(whenNotificationSentWrittenToSalesforce)
     )
 
-    assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        CohortTable
-          .update(cohortItem)
-          .provideLayer(
-            stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging
-              .impl("TestCohort") >>>
-              CohortTableLive.impl(cohortSpec)
-          )
-      ),
-      Success(())
-    )
+    assertEquals(cohortTable.update(cohortItem), Right(()))
 
     assertEquals(tableUpdated.get, tableName)
     assertEquals(receivedKey.get.subscriptionNumber, subscriptionId)
@@ -387,39 +335,18 @@ class CohortTableLiveTest extends munit.FunSuite {
     )
   }
 
-  private def formatTimestamp(instant: Instant) = {
-    ISO_DATE_TIME.format(instant.atZone(UTC))
-  }
-
   test("Update the PriceMigrationEngine table and serialise the CohortItem with missing optional values correctly") {
     var receivedUpdate: Option[CohortItem] = None
     var receivedValueSerialiser: Option[DynamoDBUpdateSerialiser[CohortItem]] = None
 
-    val stubDynamoDb = ZLayer.succeed(
-      new DynamoDb {
+    val dynamoDb = stubDynamoDb(updateResponse = (_, _, value, _, valueSerializer) => {
+      receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
+      receivedUpdate = Some(value.asInstanceOf[CohortItem])
+      Right(())
+    })
 
-        override def query[A](query: QueryRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): Either[DynamoDbError, Unit] = {
-          receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
-          receivedUpdate = Some(value.asInstanceOf[CohortItem])
-          Right(())
-        }
-
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-      }
-    )
+    val cohortTable =
+      CohortTableLive.instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, TestLogging.instance)
 
     val expectedSubscriptionId = "subscription-id"
     val expectedProcessingStage = ReadyForEstimation
@@ -429,18 +356,7 @@ class CohortTableLiveTest extends munit.FunSuite {
       processingStage = expectedProcessingStage
     )
 
-    assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        CohortTable
-          .update(cohortItem)
-          .provideLayer(
-            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDb ++ ConsoleLogging
-              .impl("TestCohort") >>>
-              CohortTableLive.impl(cohortSpec)
-          )
-      ),
-      Success(())
-    )
+    assertEquals(cohortTable.update(cohortItem), Right(()))
 
     val update = receivedValueSerialiser.get.serialise(receivedUpdate.get).asScala
     assertEquals(
@@ -470,47 +386,19 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedInsert: Option[CohortItem] = None
     var receivedSerialiser: Option[DynamoDBSerialiser[CohortItem]] = None
 
-    val stubDynamoDb = ZLayer.succeed(
-      new DynamoDb {
+    val dynamoDb = stubDynamoDb(createResponse = (table, _, value, valueSerializer) => {
+      tableUpdated = Some(table)
+      receivedInsert = Some(value.asInstanceOf[CohortItem])
+      receivedSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBSerialiser[CohortItem]])
+      Right(())
+    })
 
-        override def query[A](query: QueryRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): Either[DynamoDbError, Unit] = ???
-
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
-        ): Either[DynamoDbError, Unit] = {
-          tableUpdated = Some(table)
-          receivedInsert = Some(value.asInstanceOf[CohortItem])
-          receivedSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBSerialiser[CohortItem]])
-          Right(())
-        }
-
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
-        ): Iterator[Either[DynamoDbError, A]] = ???
-      }
-    )
+    val cohortTable =
+      CohortTableLive.instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, TestLogging.instance)
 
     val cohortItem = CohortItem("Subscription-id", ReadyForEstimation)
 
-    assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        CohortTable
-          .create(cohortItem)
-          .provideLayer(
-            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDb ++ ConsoleLogging
-              .impl("TestCohort") >>>
-              CohortTableLive.impl(cohortSpec)
-          )
-      ),
-      Success(())
-    )
+    assertEquals(cohortTable.create(cohortItem), Right(()))
 
     assertEquals(tableUpdated.get, tableName)
     val insert = receivedSerialiser.get.serialise(receivedInsert.get)

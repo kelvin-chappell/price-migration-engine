@@ -7,7 +7,6 @@ import software.amazon.awssdk.services.s3.model.{ObjectCannedACL, PutObjectRespo
 import zio.Exit.Success
 import zio.Runtime.default
 import zio._
-import zio.stream.ZStream
 
 import java.io.{File, InputStream}
 import java.time.LocalDate
@@ -24,16 +23,13 @@ class SubscriptionIdUploadHandlerTest extends munit.FunSuite {
         override def fetch(
             filter: CohortTableFilter,
             latestAmendmentEffectiveDateInclusive: Option[LocalDate]
-        ): ZStream[Any, CohortFetchFailure, CohortItem] = ???
-        override def update(result: CohortItem): ZIO[Any, CohortUpdateFailure, Unit] = ???
-        override def fetchAll(): ZStream[Any, CohortFetchFailure, CohortItem] = ???
-        override def create(cohortItem: CohortItem): ZIO[Any, Failure, Unit] =
-          ZIO
-            .attempt {
-              subscriptionsWrittenToCohortTable.addOne(cohortItem)
-              ()
-            }
-            .orElseFail(CohortUpdateFailure(""))
+        ): Iterator[Either[CohortFetchFailure, CohortItem]] = ???
+        override def update(result: CohortItem): Either[CohortUpdateFailure, Unit] = ???
+        override def fetchAll(): Iterator[Either[CohortFetchFailure, CohortItem]] = ???
+        override def create(cohortItem: CohortItem): Either[Failure, Unit] = {
+          subscriptionsWrittenToCohortTable.addOne(cohortItem)
+          Right(())
+        }
       }
     )
 

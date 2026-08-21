@@ -3,8 +3,7 @@ package pricemigrationengine.services
 import pricemigrationengine.model._
 import pricemigrationengine.model.dynamodb.Conversions._
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, ScanRequest}
-import zio.stream.ZStream
-import zio.{IO, ZIO, ZLayer}
+import zio.ZLayer
 
 import java.time.LocalDate
 import scala.jdk.CollectionConverters._
@@ -135,90 +134,87 @@ object CohortTableLive {
 
   def impl(
       cohortSpec: CohortSpec
-  ): ZLayer[DynamoDb with StageConfig with CohortTableConfig with Logging, ConfigFailure, CohortTable] = {
+  ): ZLayer[DynamoDb with StageConfig with CohortTableConfig with Logging, ConfigFailure, CohortTable] =
     ZLayer.fromZIO {
       for {
-        dynamoDbZio <- ZIO.service[DynamoDb]
-        stageConfig <- ZIO.service[StageConfig]
-        tableName = cohortSpec.tableName(stageConfig.stage)
-        cohortTableConfig <- ZIO.service[CohortTableConfig]
-        logging <- ZIO.service[Logging]
-      } yield new CohortTable {
+        dynamoDb <- zio.ZIO.service[DynamoDb]
+        stageConfig <- zio.ZIO.service[StageConfig]
+        cohortTableConfig <- zio.ZIO.service[CohortTableConfig]
+        logging <- zio.ZIO.service[Logging]
+      } yield instance(cohortSpec, dynamoDb, stageConfig, cohortTableConfig, logging)
+    }
 
-        override def fetch(
-            filter: CohortTableFilter,
-            latestAmendmentEffectiveDateInclusive: Option[LocalDate]
-        ): ZStream[Any, CohortFetchFailure, CohortItem] = {
-          val indexName =
-            latestAmendmentEffectiveDateInclusive
-              .fold(ProcessingStageIndexName)(_ => ProcessingStageAndDateIndexName)
-          val queryRequest =
-            QueryRequest.builder
-              .tableName(tableName)
-              .indexName(indexName)
-              .keyConditionExpression(
-                "processingStage = :processingStage" + latestAmendmentEffectiveDateInclusive.fold("") { _ =>
-                  " AND amendmentEffectiveDate <= :date"
-                }
-              )
-              .expressionAttributeValues(
-                List(
-                  Some(":processingStage" -> AttributeValue.builder.s(filter.value).build()),
-                  latestAmendmentEffectiveDateInclusive.map { date =>
-                    ":date" -> AttributeValue.builder
-                      .s(date.toString)
-                      .build()
-                  }
-                ).flatten.toMap.asJava
-              )
-              .limit(cohortTableConfig.batchSize)
-              .build()
-          logging.info(s"[72E0D1FC] queryRequest: ${queryRequest.toString}")
-          ZStream
-            .fromIterator(dynamoDbZio.query(queryRequest))
-            .flatMap {
-              case Right(item) => ZStream.succeed(item)
-              case Left(error) => ZStream.fail(error)
-            }
-            .mapError(error => CohortFetchFailure(error.toString))
-        }
+  /** Plain, direct-style implementation. */
+  def instance(
+      cohortSpec: CohortSpec,
+      dynamoDb: DynamoDb,
+      stageConfig: StageConfig,
+      cohortTableConfig: CohortTableConfig,
+      logging: Logging
+  ): CohortTable = {
+    val tableName = cohortSpec.tableName(stageConfig.stage)
 
-        override def create(cohortItem: CohortItem): IO[Failure, Unit] = {
-          ZIO
-            .fromEither(dynamoDbZio.create(table = tableName, keyName = keyAttribName, value = cohortItem))
-            .mapError {
-              case DynamoDbError(reason, _: Some[_]) =>
-                CohortItemAlreadyPresentFailure(reason)
-              case error => CohortCreateFailure(error.toString)
-            }
-        }
+    new CohortTable {
 
-        override def update(cohortItem: CohortItem): ZIO[Any, CohortUpdateFailure, Unit] = {
-          ZIO
-            .fromEither(
-              dynamoDbZio
-                .update(table = tableName, key = CohortTableKey(cohortItem.subscriptionName), value = cohortItem)
-            )
-            .mapError(error => CohortUpdateFailure(error.toString))
-            .tapBoth(
-              e => ZIO.succeed(logging.error(s"Failed to update Cohort table: $e")),
-              _ => ZIO.succeed(logging.info(s"Wrote ${cohortItem} to Cohort table"))
-            )
-        }
-
-        override def fetchAll(): ZStream[Any, CohortFetchFailure, CohortItem] = {
-          val queryRequest = ScanRequest.builder
+      override def fetch(
+          filter: CohortTableFilter,
+          latestAmendmentEffectiveDateInclusive: Option[LocalDate]
+      ): Iterator[Either[CohortFetchFailure, CohortItem]] = {
+        val indexName =
+          latestAmendmentEffectiveDateInclusive
+            .fold(ProcessingStageIndexName)(_ => ProcessingStageAndDateIndexName)
+        val queryRequest =
+          QueryRequest.builder
             .tableName(tableName)
+            .indexName(indexName)
+            .keyConditionExpression(
+              "processingStage = :processingStage" + latestAmendmentEffectiveDateInclusive.fold("") { _ =>
+                " AND amendmentEffectiveDate <= :date"
+              }
+            )
+            .expressionAttributeValues(
+              List(
+                Some(":processingStage" -> AttributeValue.builder.s(filter.value).build()),
+                latestAmendmentEffectiveDateInclusive.map { date =>
+                  ":date" -> AttributeValue.builder
+                    .s(date.toString)
+                    .build()
+                }
+              ).flatten.toMap.asJava
+            )
             .limit(cohortTableConfig.batchSize)
             .build()
-          ZStream
-            .fromIterator(dynamoDbZio.scan(queryRequest))
-            .flatMap {
-              case Right(item) => ZStream.succeed(item)
-              case Left(error) => ZStream.fail(error)
-            }
-            .mapError(error => CohortFetchFailure(error.toString))
+        logging.info(s"[72E0D1FC] queryRequest: ${queryRequest.toString}")
+        dynamoDb.query(queryRequest).map(_.left.map(error => CohortFetchFailure(error.toString)))
+      }
+
+      override def create(cohortItem: CohortItem): Either[Failure, Unit] =
+        dynamoDb.create(table = tableName, keyName = keyAttribName, value = cohortItem).left.map {
+          case DynamoDbError(reason, _: Some[_]) =>
+            CohortItemAlreadyPresentFailure(reason)
+          case error => CohortCreateFailure(error.toString)
         }
+
+      override def update(cohortItem: CohortItem): Either[CohortUpdateFailure, Unit] = {
+        val result = dynamoDb
+          .update(table = tableName, key = CohortTableKey(cohortItem.subscriptionName), value = cohortItem)
+          .left
+          .map(error => CohortUpdateFailure(error.toString))
+
+        result match {
+          case Left(e)  => logging.error(s"Failed to update Cohort table: $e")
+          case Right(_) => logging.info(s"Wrote ${cohortItem} to Cohort table")
+        }
+
+        result
+      }
+
+      override def fetchAll(): Iterator[Either[CohortFetchFailure, CohortItem]] = {
+        val queryRequest = ScanRequest.builder
+          .tableName(tableName)
+          .limit(cohortTableConfig.batchSize)
+          .build()
+        dynamoDb.scan(queryRequest).map(_.left.map(error => CohortFetchFailure(error.toString)))
       }
     }
   }

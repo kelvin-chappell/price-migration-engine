@@ -3,7 +3,6 @@ package pricemigrationengine.handlers
 import pricemigrationengine.model.CohortTableFilter.{EstimationComplete, SalesforcePriceRiseCreationComplete}
 import pricemigrationengine.model._
 import pricemigrationengine.services._
-import zio.stream.ZStream
 import zio.{Clock, IO, Runtime, UIO, Unsafe, ZIO, ZLayer}
 
 import java.time.{Instant, LocalDate}
@@ -45,14 +44,16 @@ class SalesforcePriceRiseCreationHandlerTest extends munit.FunSuite {
       def fetch(
           filter: CohortTableFilter,
           latestAmendmentEffectiveDateInclusive: Option[LocalDate]
-      ): ZStream[Any, CohortFetchFailure, CohortItem] = {
+      ): Iterator[Either[CohortFetchFailure, CohortItem]] = {
         assertEquals(filter, EstimationComplete)
-        ZStream(item)
+        Iterator(Right(item))
       }
-      def create(cohortItem: CohortItem): ZIO[Any, Failure, Unit] = ???
-      def update(result: CohortItem): ZIO[Any, CohortUpdateFailure, Unit] =
-        ZIO.succeed(updated.addOne(result)).unit
-      def fetchAll(): ZStream[Any, CohortFetchFailure, CohortItem] = ???
+      def create(cohortItem: CohortItem): Either[Failure, Unit] = ???
+      def update(result: CohortItem): Either[CohortUpdateFailure, Unit] = {
+        updated.addOne(result)
+        Right(())
+      }
+      def fetchAll(): Iterator[Either[CohortFetchFailure, CohortItem]] = ???
     })
 
   private def stubSalesforceClient(created: ArrayBuffer[SalesforcePriceRise]): ZLayer[Any, Nothing, SalesforceClient] =

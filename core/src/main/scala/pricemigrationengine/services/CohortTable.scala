@@ -10,32 +10,50 @@ case class CohortTableKey(subscriptionNumber: String)
 
 trait CohortTable {
 
+  /** Lazily paginates through the Cohort table - see `DynamoDb.query`/`.scan` for the pagination/fail-fast
+    * semantics this preserves.
+    */
   def fetch(
       filter: CohortTableFilter,
       latestAmendmentEffectiveDateInclusive: Option[LocalDate]
-  ): ZStream[Any, CohortFetchFailure, CohortItem]
+  ): Iterator[Either[CohortFetchFailure, CohortItem]]
 
-  def fetchAll(): ZStream[Any, CohortFetchFailure, CohortItem]
+  def fetchAll(): Iterator[Either[CohortFetchFailure, CohortItem]]
 
-  def create(cohortItem: CohortItem): IO[Failure, Unit]
+  def create(cohortItem: CohortItem): Either[Failure, Unit]
 
-  def update(cohortItem: CohortItem): IO[CohortUpdateFailure, Unit]
+  def update(cohortItem: CohortItem): Either[CohortUpdateFailure, Unit]
 }
 
 object CohortTable {
 
+  /** ZIO-facing compatibility shim for not-yet-converted callers. Wraps the plain, lazy
+    * `Iterator[Either[CohortFetchFailure, CohortItem]]` in a `ZStream`, failing the stream as soon as a `Left`
+    * is encountered - matching the original `ZStream`'s error-channel semantics.
+    */
   def fetch(
       filter: CohortTableFilter,
       latestAmendmentEffectiveDateInclusive: Option[LocalDate]
   ): ZStream[CohortTable, CohortFetchFailure, CohortItem] =
-    ZStream.serviceWithStream(_.fetch(filter, latestAmendmentEffectiveDateInclusive))
+    ZStream.serviceWithStream(env => streamOf(env.fetch(filter, latestAmendmentEffectiveDateInclusive)))
 
   def fetchAll(): ZStream[CohortTable, CohortFetchFailure, CohortItem] =
-    ZStream.serviceWithStream(_.fetchAll())
+    ZStream.serviceWithStream(env => streamOf(env.fetchAll()))
 
   def create(subscription: CohortItem): ZIO[CohortTable, Failure, Unit] =
-    ZIO.environmentWithZIO(_.get.create(subscription))
+    ZIO.environmentWithZIO(env => ZIO.fromEither(env.get.create(subscription)))
 
   def update(cohortItem: CohortItem): ZIO[CohortTable, CohortUpdateFailure, Unit] =
-    ZIO.environmentWithZIO(_.get.update(cohortItem))
+    ZIO.environmentWithZIO(env => ZIO.fromEither(env.get.update(cohortItem)))
+
+  private def streamOf(
+      iterator: => Iterator[Either[CohortFetchFailure, CohortItem]]
+  ): ZStream[Any, CohortFetchFailure, CohortItem] =
+    ZStream
+      .fromIterator(iterator)
+      .mapError(ex => CohortFetchFailure(ex.getMessage))
+      .flatMap {
+        case Right(value) => ZStream.succeed(value)
+        case Left(error)  => ZStream.fail(error)
+      }
 }
