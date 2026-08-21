@@ -134,13 +134,8 @@ object AmendmentHandler extends CohortHandler {
               )
             )
         }
-        case _ =>
-          ZIO
-            .fail(
-              AmendmentFailure(
-                s"[7f2bf362] unexpected amendment attempt result while processing subscription: ${item.subscriptionName}"
-              )
-            )
+        // `AmendmentAttemptResult` is a sealed trait with exactly these two subtypes (see model/AmendmentAttemptResult.scala),
+        // so this match is already exhaustive; Scala 3 rejects a `case _` fallback here as unreachable dead code.
       }
     } yield ()).foldZIO(
       failure = {
