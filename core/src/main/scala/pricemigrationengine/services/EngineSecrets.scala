@@ -28,29 +28,35 @@ object EngineSecrets {
 
   private lazy val secretsClient = SecretsManagerClient.create()
 
-  private def getSecretId: ZIO[Any, ConfigFailure, String] =
-    for {
-      stageOpt <- System.env("stage").mapError { ex => ConfigFailure(s"Failure to retrieve stage: ${ex.getMessage}") }
-      stage <- ZIO.fromOption(stageOpt).mapError { _ => ConfigFailure(s"Failure to retrieve stage") }
-    } yield s"price-migration-engine-lambda-${stage}"
+  private def getSecretIdPlain(): String = {
+    val stage =
+      Option(java.lang.System.getenv("stage")).getOrElse(throw new RuntimeException("Failure to retrieve stage"))
+    s"price-migration-engine-lambda-${stage}"
+  }
 
-  private def getSecretString: ZIO[Any, ConfigFailure, String] = for {
-    secretId <- getSecretId
-    secret <- ZIO
-      .attempt(
-        secretsClient.getSecretValue(GetSecretValueRequest.builder().secretId(secretId).build()).secretString()
-      )
-      .mapError { ex =>
-        ConfigFailure(s"Failure to retrieve secrets string: ${ex.getMessage}")
-      }
-  } yield secret
+  private def getSecretStringPlain(): String = {
+    val secretId = getSecretIdPlain()
+    try {
+      secretsClient.getSecretValue(GetSecretValueRequest.builder().secretId(secretId).build()).secretString()
+    } catch {
+      case ex: Exception =>
+        throw new RuntimeException(s"Failure to retrieve secrets string: ${ex.getMessage}", ex)
+    }
+  }
 
-  def getSecrets: ZIO[Any, ConfigFailure, EngineSecrets] = for {
-    secretJsonString <- getSecretString
-    secrets <- ZIO
-      .attempt(read[EngineSecrets](secretJsonString))
-      .mapError { ex =>
-        ConfigFailure(s"Failure to parse secrets string: ${ex.getMessage}")
-      }
-  } yield secrets
+  /** Plain, direct-style version of [[getSecrets]]. Throws a `RuntimeException` on failure.
+    */
+  def getSecretsPlain(): EngineSecrets = {
+    val secretJsonString = getSecretStringPlain()
+    try {
+      read[EngineSecrets](secretJsonString)
+    } catch {
+      case ex: Exception =>
+        throw new RuntimeException(s"Failure to parse secrets string: ${ex.getMessage}", ex)
+    }
+  }
+
+  /** ZIO-facing compatibility shim for not-yet-converted callers. */
+  def getSecrets: ZIO[Any, ConfigFailure, EngineSecrets] =
+    ZIO.attempt(getSecretsPlain()).mapError(ex => ConfigFailure(ex.getMessage))
 }
