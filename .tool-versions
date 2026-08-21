@@ -1,3 +1,4 @@
 java corretto-25
 sbt 1
+node lts
 github:guardian/devenv 20260721-123412
