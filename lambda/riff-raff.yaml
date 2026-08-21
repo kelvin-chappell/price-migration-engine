@@ -16,14 +16,12 @@ deployments:
       fileName: price-migration-engine-lambda.jar
       bucket: membership-dist
       prefixStack: false
+      # Only handlers still built by the `lambda` subproject's jar belong here. Handlers migrated to their own
+      # Scala 3 subproject (see docs/scala-3-migration.md) must be removed from this list: otherwise this
+      # deployment (which runs after `cfn`, per the `dependencies` below) would overwrite their function code
+      # with this stale jar, undoing the CloudFormation update that just pointed them at their own artifact.
       functionNames:
-      - price-migration-lambda-
-      - price-migration-engine-table-create-lambda-
       - price-migration-engine-estimation-lambda-
-      - price-migration-engine-salesforce-price-rise-lambda-
       - price-migration-engine-amendment-lambda-
-      - price-migration-engine-subscription-id-upload-lambda-
       - price-migration-engine-notification-lambda-
-      - price-migration-engine-salesforce-notification-date-lambda-
-      - price-migration-engine-salesforce-amendment-update-lambda-
     dependencies: [cfn]
