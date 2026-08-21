@@ -1,36 +1,41 @@
 ## Migrating to Scala 3, one lambda at a time
 
-### Why this can't be done handler-by-handler in place
+**Status: complete.** Every lambda handler now lives in its own Scala 3 sbt subproject, and `core` is a single
+Scala 3 build. The rest of this document is kept as a historical record of why the migration was structured this
+way and the recipe used, in case a similar incremental migration is needed again in future.
+
+### Why this couldn't be done handler-by-handler in place
 
 Originally every lambda handler lived in one sbt subproject (`lambda`), sharing one `ThisBuild / scalaVersion`.
 Scala version is a per-module setting, so Scala 2.13 and Scala 3 source files can't be mixed within a single sbt
-project. To migrate lambdas incrementally, each migrated handler needs its own subproject with its own
+project. To migrate lambdas incrementally, each migrated handler needed its own subproject with its own
 `scalaVersion`.
 
 The shared code used by every handler (`pricemigrationengine.model`, `.services`, `.migrations`, and the
-`CohortHandler` trait) lives in a `core` subproject. This is where it gets more interesting: ZIO derives values
-like `Trace` via macros that are implemented differently for Scala 2.13 and Scala 3. That means:
+`CohortHandler` trait) lives in a `core` subproject. This is where it got more interesting: ZIO derives values
+like `Trace` via macros that are implemented differently for Scala 2.13 and Scala 3. That meant:
 
-* A Scala 3 lambda can't simply put a Scala-2.13-compiled `core` on its classpath and call ZIO methods - the
-  macro-derived implicits won't resolve (Scala 3 can't invoke old-style Scala 2 macros).
-* Nor can a Scala 3 lambda declare its own `zio`/`upickle`/etc. (`_3` build) *and* depend on `core` (which brings
-  in the `_2.13` build) - sbt rejects mixing `_2.13` and `_3` artifacts of the same library on one classpath
-  ("Conflicting cross-version suffixes").
+* A Scala 3 lambda couldn't simply put a Scala-2.13-compiled `core` on its classpath and call ZIO methods - the
+  macro-derived implicits wouldn't resolve (Scala 3 can't invoke old-style Scala 2 macros).
+* Nor could a Scala 3 lambda declare its own `zio`/`upickle`/etc. (`_3` build) *and* depend on `core` (which
+  brought in the `_2.13` build) - sbt rejects mixing `_2.13` and `_3` artifacts of the same library on one
+  classpath ("Conflicting cross-version suffixes").
 
-So `core`'s source is compiled **twice** from the same `core/` directory in `build.sbt`:
+So, while the migration was in progress, `core`'s source was compiled **twice** from the same `core/` directory
+in `build.sbt`:
 
 * `core` - Scala 2.13, used by `lambda` (handlers not yet migrated).
-* `coreScala3` - Scala 3, used by lambdas that have been migrated.
+* `coreScala3` - Scala 3, used by lambdas that had been migrated.
 
-Both must compile cleanly against the same source. In practice, this codebase's `core` sources already do, with
-no changes required (no Scala-2-only syntax, no macros of its own). If a future change to `core` doesn't compile
-under Scala 3, fix it there rather than diverging the two builds.
+Both had to compile cleanly against the same source; in practice, `core`'s sources already did, with no changes
+required (no Scala-2-only syntax, no macros of its own).
 
-Once every handler depending on `core` has moved to Scala 3, delete `core` (the 2.13 build), `lambda`, and the
-`coreScala3`/`core` split, leaving a single Scala 3 `core` and one subproject per (still separate) lambda, or
-consolidate them if that's no longer needed.
+Once every handler depending on `core` moved to Scala 3, the `core`/`coreScala3` split was collapsed back into a
+single Scala 3 `core` project, all lambda subprojects were switched to depend on it directly, and the now-empty
+`lambda` project was reduced to just its `cfn/cfn.yaml` CloudFormation template (see
+[lambdas-code-structure.md](lambdas-code-structure.md)).
 
-### Recipe for migrating the next lambda
+### Recipe used to migrate each lambda
 
 Using `cohortTableCreationLambda` (the first one migrated) as the template:
 

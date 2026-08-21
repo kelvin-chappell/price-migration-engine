@@ -4,7 +4,7 @@ import sbt.Keys.{description, name}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / scalaVersion := "3.3.6"
 
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
@@ -46,7 +46,6 @@ lazy val priceMigrationEngine = (project in file("."))
   .aggregate(
     dynamoDb,
     core,
-    coreScala3,
     lambda,
     cohortTableCreationLambda,
     migrationLambda,
@@ -72,14 +71,10 @@ lazy val dynamoDb = (project in file("dynamoDb"))
 
 // Shared code (model, services, migrations) used by every lambda handler.
 //
-// ZIO's implicit `Trace` (and similar) values are derived via version-specific macros, so a Scala 3 lambda
-// cannot simply reuse a Scala-2.13-compiled `core` on its classpath (mixing `..._2.13` and `..._3` artifacts of
-// the same library on one classpath also fails outright, as sbt detects and rejects "conflicting cross-version
-// suffixes"). Rather than migrating every handler and `core` in one atomic step, `core`'s sources are compiled
-// twice from the same `core/` source directory: as `core` (Scala 2.13, for handlers not yet migrated) and as
-// `coreScala3` (Scala 3, for handlers that have been migrated). Both must currently compile cleanly, which is
-// why `core`'s source is restricted to constructs valid under both Scala versions. Once every handler depending
-// on it is on Scala 3, the `core`/`coreScala3` split collapses back into a single Scala-3-only `core` project.
+// This used to be built twice - as Scala 2.13 `core` (for handlers not yet migrated) and Scala 3 `coreScala3`
+// (for migrated handlers) - because ZIO's implicit `Trace` (and similar) values are derived via version-specific
+// macros, so a Scala 3 lambda couldn't reuse a Scala-2.13-compiled `core`. Now that every handler has migrated
+// to Scala 3 (see docs/scala-3-migration.md), that split has collapsed back into this single Scala 3 project.
 lazy val core = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
   .settings(
@@ -115,93 +110,26 @@ lazy val core = (project in file("core"))
     commonAssemblyMergeStrategy,
   )
 
-// Scala 3 build of the exact same sources as `core` above - see the comment on `core` for why this exists.
-lazy val coreScala3 = (project in file("core"))
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    scalaVersion := "3.3.6",
-    target := baseDirectory.value / "target-scala3",
-    // The same source directory is used by `core` (Scala 2.13); its tests already run there and use zio-test/
-    // zio-mock, which aren't declared here (to avoid a `_3`/`_2.13` cross-version clash on this project's
-    // classpath - see comment on `core`). Skip compiling/running that test source set again in this project.
-    Test / unmanagedSourceDirectories := Nil,
-    name := "price-migration-engine-core-scala3",
-    dependencyOverrides ++= Seq(
-      "io.netty" % "netty-handler" % "4.2.16.Final",
-      "io.netty" % "netty-codec-base" % "4.2.16.Final",
-      "io.netty" % "netty-codec" % "4.2.16.Final"
-    ),
-    libraryDependencies ++= Seq(
-      zio,
-      zioStreams,
-      upickle,
-      awsDynamoDb,
-      awsLambda,
-      awsS3,
-      awsSQS,
-      awsStateMachine,
-      awsSecretsManager,
-      http_sttp_client4_core,
-      http_sttp_client4_zio,
-      commonsCsv,
-      slf4jNop % Runtime,
-      munit % Test
-    ),
-    testFrameworks += new TestFramework("munit.Framework"),
-    description := "Shared model/services/migrations code for the Price Migration Engine lambdas (Scala 3 build)",
-    buildInfo,
-    commonAssemblyMergeStrategy,
-  )
-
 lazy val lambda = (project in file("lambda"))
-  .enablePlugins(RiffRaffArtifact)
-  // "test->test" lets this module's tests reuse core's test-only helpers (e.g. Fixtures, TestLogging).
-  .dependsOn(core % "compile->compile;test->test")
+  .enablePlugins(RiffRaffArtifact, BuildInfoPlugin)
   .settings(
     name := "price-migration-engine-lambda",
-    dependencyOverrides ++= Seq(
-      "io.netty" % "netty-handler" % "4.2.16.Final",
-      "io.netty" % "netty-codec-base" % "4.2.16.Final",
-      "io.netty" % "netty-codec" % "4.2.16.Final"
-    ),
-    libraryDependencies ++= Seq(
-      zio,
-      zioStreams,
-      upickle,
-      awsDynamoDb,
-      awsLambda,
-      awsS3,
-      awsSQS,
-      awsStateMachine,
-      awsSecretsManager,
-      http_sttp_client4_core,
-      http_sttp_client4_zio,
-      commonsCsv,
-      slf4jNop % Runtime,
-      munit % Test,
-      zioTest % Test,
-      zioTestSbt % Test,
-      zioMock % Test
-    ),
-    testFrameworks += new TestFramework("munit.Framework"),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    description := "Lambda jar for the Price Migration Engine",
-    assemblyJarName := "price-migration-engine-lambda.jar",
-    riffRaffPackageType := assembly.value,
+    // Every handler has now migrated to its own Scala 3 subproject (see docs/scala-3-migration.md), so this
+    // project no longer builds any Scala code. It only carries the CloudFormation template (cfn/cfn.yaml)
+    // defining every handler's AWS::Lambda::Function/IAM resources, deployed under the same Riffraff project
+    // name ("Retention::PriceMigrationEngine::Lambda") as before.
+    description := "Cloudformation for the Price Migration Engine's lambdas",
+    riffRaffPackageType := (baseDirectory.value / "cfn"),
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::Lambda",
-    riffRaffArtifactResources += ((project.base / "cfn.yaml", "cfn/cfn.yaml")),
-    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project must
-    // not also generate it, or its own fat jar would fail to assemble due to duplicate `build/BuildInfo$.class`.
-    commonAssemblyMergeStrategy,
+    buildInfo,
   )
 
 // First lambda migrated to Scala 3, as a template for migrating the rest one at a time.
 // See docs/scala-3-migration.md for the recipe to follow for the next lambda.
 lazy val cohortTableCreationLambda = (project in file("cohortTableCreationLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-cohort-table-creation-lambda",
     dependencyOverrides ++= Seq(
@@ -210,7 +138,7 @@ lazy val cohortTableCreationLambda = (project in file("cohortTableCreationLambda
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -223,7 +151,7 @@ lazy val cohortTableCreationLambda = (project in file("cohortTableCreationLambda
     assemblyJarName := "price-migration-engine-cohort-table-creation-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::CohortTableCreationLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -231,9 +159,8 @@ lazy val cohortTableCreationLambda = (project in file("cohortTableCreationLambda
 // Second lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val migrationLambda = (project in file("migrationLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-migration-lambda",
     dependencyOverrides ++= Seq(
@@ -242,7 +169,7 @@ lazy val migrationLambda = (project in file("migrationLambda"))
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -255,7 +182,7 @@ lazy val migrationLambda = (project in file("migrationLambda"))
     assemblyJarName := "price-migration-engine-migration-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::MigrationLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -263,9 +190,8 @@ lazy val migrationLambda = (project in file("migrationLambda"))
 // Third lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val subscriptionIdUploadLambda = (project in file("subscriptionIdUploadLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-subscription-id-upload-lambda",
     dependencyOverrides ++= Seq(
@@ -275,7 +201,7 @@ lazy val subscriptionIdUploadLambda = (project in file("subscriptionIdUploadLamb
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-*/commons-csv here: they are pulled transitively, at their
     // Scala 3 binary version (or, for commons-csv, plain Java, so no cross-version suffix at all), from
-    // `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%` would risk resolving a
+    // `core` (compile-scope project dependency). Redeclaring them here with `%%` would risk resolving a
     // different/duplicate version and clashing on the classpath ("Conflicting cross-version suffixes"). `munit`
     // has no such transitive zio/upickle dependency, so it's safe to use its Scala 3 build directly here for
     // this module's own tests.
@@ -288,7 +214,7 @@ lazy val subscriptionIdUploadLambda = (project in file("subscriptionIdUploadLamb
     assemblyJarName := "price-migration-engine-subscription-id-upload-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::SubscriptionIdUploadLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -296,9 +222,8 @@ lazy val subscriptionIdUploadLambda = (project in file("subscriptionIdUploadLamb
 // Fourth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val salesforceNotificationDateUpdateLambda = (project in file("salesforceNotificationDateUpdateLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-salesforce-notification-date-update-lambda",
     dependencyOverrides ++= Seq(
@@ -307,7 +232,7 @@ lazy val salesforceNotificationDateUpdateLambda = (project in file("salesforceNo
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -320,7 +245,7 @@ lazy val salesforceNotificationDateUpdateLambda = (project in file("salesforceNo
     assemblyJarName := "price-migration-engine-salesforce-notification-date-update-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::SalesforceNotificationDateUpdateLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -328,9 +253,8 @@ lazy val salesforceNotificationDateUpdateLambda = (project in file("salesforceNo
 // Fifth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val salesforceAmendmentUpdateLambda = (project in file("salesforceAmendmentUpdateLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-salesforce-amendment-update-lambda",
     dependencyOverrides ++= Seq(
@@ -339,7 +263,7 @@ lazy val salesforceAmendmentUpdateLambda = (project in file("salesforceAmendment
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -352,7 +276,7 @@ lazy val salesforceAmendmentUpdateLambda = (project in file("salesforceAmendment
     assemblyJarName := "price-migration-engine-salesforce-amendment-update-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::SalesforceAmendmentUpdateLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -360,9 +284,8 @@ lazy val salesforceAmendmentUpdateLambda = (project in file("salesforceAmendment
 // Sixth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val salesforcePriceRiseCreationLambda = (project in file("salesforcePriceRiseCreationLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-salesforce-price-rise-creation-lambda",
     dependencyOverrides ++= Seq(
@@ -371,7 +294,7 @@ lazy val salesforcePriceRiseCreationLambda = (project in file("salesforcePriceRi
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -384,7 +307,7 @@ lazy val salesforcePriceRiseCreationLambda = (project in file("salesforcePriceRi
     assemblyJarName := "price-migration-engine-salesforce-price-rise-creation-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::SalesforcePriceRiseCreationLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -392,9 +315,8 @@ lazy val salesforcePriceRiseCreationLambda = (project in file("salesforcePriceRi
 // Seventh lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val estimationLambda = (project in file("estimationLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-estimation-lambda",
     dependencyOverrides ++= Seq(
@@ -403,7 +325,7 @@ lazy val estimationLambda = (project in file("estimationLambda"))
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -416,7 +338,7 @@ lazy val estimationLambda = (project in file("estimationLambda"))
     assemblyJarName := "price-migration-engine-estimation-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::EstimationLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -424,9 +346,8 @@ lazy val estimationLambda = (project in file("estimationLambda"))
 // Eighth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val amendmentLambda = (project in file("amendmentLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-amendment-lambda",
     dependencyOverrides ++= Seq(
@@ -435,7 +356,7 @@ lazy val amendmentLambda = (project in file("amendmentLambda"))
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -448,7 +369,7 @@ lazy val amendmentLambda = (project in file("amendmentLambda"))
     assemblyJarName := "price-migration-engine-amendment-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::AmendmentLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )
@@ -456,9 +377,8 @@ lazy val amendmentLambda = (project in file("amendmentLambda"))
 // Ninth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
 lazy val notificationLambda = (project in file("notificationLambda"))
   .enablePlugins(RiffRaffArtifact)
-  .dependsOn(coreScala3)
+  .dependsOn(core)
   .settings(
-    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
     scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
     name := "price-migration-engine-notification-lambda",
     dependencyOverrides ++= Seq(
@@ -467,7 +387,7 @@ lazy val notificationLambda = (project in file("notificationLambda"))
       "io.netty" % "netty-codec" % "4.2.16.Final"
     ),
     // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
-    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // binary version, from `core` (compile-scope project dependency). Redeclaring them here with `%%`
     // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
     // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
     // its Scala 3 build directly here for this module's own tests.
@@ -480,7 +400,7 @@ lazy val notificationLambda = (project in file("notificationLambda"))
     assemblyJarName := "price-migration-engine-notification-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::NotificationLambda",
-    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // BuildInfo (`build.BuildInfo`) is generated once, by `core` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
   )

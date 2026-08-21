@@ -11,13 +11,14 @@ The effects of the code are generated and consumed through [services](../core/sr
 
 These services are composed together into ZIO vertical and horizontal [layers](https://github.com/zio/zio/blob/master/docs/datatypes/zlayer.md), and these layers form the runtime environment for each of the lambdas by compile-time dependency injection. A vertical layer is one in which one service depends on another: they are related together by the `>>>` operator. In a horizontal layer, two peer services are related together by the `++` operator. For a more detailed explanation of how these layers work, see the [ZIO documentation](https://zio.dev/reference/contextual/zlayer/).
 
-Most of the lambdas are in the [lambda](../lambda/src/main/scala/pricemigrationengine/handlers) module's `handlers` package. Lambdas that have been migrated to Scala 3 live in their own sbt subproject instead (e.g. [cohortTableCreationLambda](../cohortTableCreationLambda)) - see [scala-3-migration.md](scala-3-migration.md) for why, and for the recipe to migrate the next one.
+Every lambda handler lives in its own sbt subproject (e.g. [estimationLambda](../estimationLambda), [cohortTableCreationLambda](../cohortTableCreationLambda)) - see [scala-3-migration.md](scala-3-migration.md) for the history of that migration.
 
 All the [dependencies](../project/Dependencies.scala) of the project have been chosen for their light weight and minimal number of transitive dependencies, so that the artefact generated is of minimal size and lambdas can warm up quickly.
 
-Most lambdas share the same generated jar (`lambda`'s). Lambdas migrated to Scala 3 are built into their own jar
-instead (see [scala-3-migration.md](scala-3-migration.md)). The only variation in a lambda's deployment is the
-`Code.S3Key`/`Handler` configuration of its `AWS::Lambda::Function` resource in `cfn.yaml`.
+Each lambda is built into its own jar (see [scala-3-migration.md](scala-3-migration.md)); the `lambda` project no
+longer builds any handler code, and only carries the shared `cfn/cfn.yaml` CloudFormation template. The only
+variation in a lambda's deployment is the `Code.S3Key`/`Handler` configuration of its `AWS::Lambda::Function`
+resource in `cfn.yaml`.
 
 ### To run lambdas locally in Intellij
 
