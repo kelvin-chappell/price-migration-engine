@@ -33,6 +33,25 @@ handlers, then remove the dependencies.**
 | Logging | ZIO `Logging` service, used via `.tapBoth`/`.tapError` | plain trait `Logging { def info(msg: String): Unit; def error(msg: String, e: Throwable): Unit }`, still constructor-injected |
 | Tests | `munit` (already used everywhere - `zio-test` is unused, confirmed 0 of 33 test files use `ZIOSpecDefault`/`assertZIO`) | unchanged; existing fakes (anonymous-class stubs) continue to work once the traits they implement are plain |
 | `zio-mock` | 1 file, `core/src/test/scala/pricemigrationengine/service/MockCohortTable.scala`, unused by any test | deleted |
+| Current time | ZIO's `Clock` service (`Clock.instant`, `Clock.nanoTime`, `Clock.currentDateTime`), stubbed in tests via `export Clock.ClockLive.{instant as _, *}` overrides | JDK's `java.time.Clock`, constructor-injected wherever the time is needed, defaulting to `Clock.systemUTC()` |
+
+### Two strategic principles for every slice of this migration
+
+These apply to every service and handler converted in Phase 1 and Phase 2, not just the ones they were first
+noticed on:
+
+1. **Never call `Instant.now()` (or any other wall-clock/relative-time API) directly from converted code.**
+   Thread a `java.time.Clock` through as a constructor-injected dependency instead, defaulting to
+   `Clock.systemUTC()` in the real `Live`/`instance` constructor. This preserves the testability ZIO's `Clock`
+   service gave us - tests can supply a fixed clock (`Clock.fixed(instant, zone)`) instead of relying on the
+   real time.
+2. **Keep pure code and effectful code distinct and separate.** When converting a service, pull out any pure
+   computation (request/response building, string formatting, business logic) into standalone pure functions
+   that take all their inputs as parameters and perform no I/O, distinct from the effectful shell that performs
+   the I/O (AWS SDK calls, logging, clock reads, HTTP calls). This keeps the pure logic trivially unit-testable
+   without stubbing any collaborators, and keeps the effectful shell thin and easy to reason about. See
+   `CohortStateMachineLive.buildRequest` (pure) vs. `CohortStateMachineLive.instance` (effectful shell) for the
+   pattern to follow.
 
 ### Dependencies to remove from `build.sbt`
 
