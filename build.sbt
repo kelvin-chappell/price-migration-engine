@@ -56,6 +56,7 @@ lazy val priceMigrationEngine = (project in file("."))
     salesforcePriceRiseCreationLambda,
     estimationLambda,
     amendmentLambda,
+    notificationLambda,
     stateMachine
   )
 
@@ -447,6 +448,38 @@ lazy val amendmentLambda = (project in file("amendmentLambda"))
     assemblyJarName := "price-migration-engine-amendment-lambda.jar",
     riffRaffPackageType := assembly.value,
     riffRaffManifestProjectName := "Retention::PriceMigrationEngine::AmendmentLambda",
+    // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
+    // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
+    commonAssemblyMergeStrategy,
+  )
+
+// Ninth lambda migrated to Scala 3. See docs/scala-3-migration.md for the recipe.
+lazy val notificationLambda = (project in file("notificationLambda"))
+  .enablePlugins(RiffRaffArtifact)
+  .dependsOn(coreScala3)
+  .settings(
+    scalaVersion := "3.3.6", // Scala 3 LTS - matches `coreScala3` (see comment above `core`).
+    scalacOptions += "-source:3.3", // -deprecation/-Xfatal-warnings already set at ThisBuild level.
+    name := "price-migration-engine-notification-lambda",
+    dependencyOverrides ++= Seq(
+      "io.netty" % "netty-handler" % "4.2.16.Final",
+      "io.netty" % "netty-codec-base" % "4.2.16.Final",
+      "io.netty" % "netty-codec" % "4.2.16.Final"
+    ),
+    // Deliberately NOT redeclaring zio/upickle/aws-* here: they are pulled transitively, at their Scala 3
+    // binary version, from `coreScala3` (compile-scope project dependency). Redeclaring them here with `%%`
+    // would risk resolving a different/duplicate version and clashing on the classpath ("Conflicting
+    // cross-version suffixes"). `munit` has no such transitive zio/upickle dependency, so it's safe to use
+    // its Scala 3 build directly here for this module's own tests.
+    libraryDependencies ++= Seq(
+      slf4jNop % Runtime,
+      munit % Test
+    ),
+    testFrameworks += new TestFramework("munit.Framework"),
+    description := "Lambda jar for the Price Migration Engine's notification handler (Scala 3)",
+    assemblyJarName := "price-migration-engine-notification-lambda.jar",
+    riffRaffPackageType := assembly.value,
+    riffRaffManifestProjectName := "Retention::PriceMigrationEngine::NotificationLambda",
     // BuildInfo (`build.BuildInfo`) is generated once, by `coreScala3` (used from LambdaLogging); this project
     // must not also generate it, or its own fat jar would fail to assemble due to a duplicate class.
     commonAssemblyMergeStrategy,
