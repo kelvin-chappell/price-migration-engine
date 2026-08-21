@@ -5,3 +5,4 @@ should be extracted wherever possible.
 There should be no use of relative times in the codebase.
 Instead, use the Clock service.
 Logging is also considered to be an effect.
+Effectful methods should return a Either[Failure, A] value.
