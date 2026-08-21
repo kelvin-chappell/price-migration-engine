@@ -26,8 +26,8 @@ class CohortTableCreationHandlerTest extends munit.FunSuite {
 
   private def stubCohortTableDdl(response: Option[CreateTableResponse]): ZLayer[Any, Nothing, CohortTableDdl] =
     ZLayer.succeed(new CohortTableDdl {
-      def createTable(cohortSpec: CohortSpec): IO[CohortTableCreateFailure, Option[CreateTableResponse]] =
-        ZIO.succeed(response)
+      def createTable(cohortSpec: CohortSpec): Either[CohortTableCreateFailure, Option[CreateTableResponse]] =
+        Right(response)
     })
 
   test("CohortTableCreationHandler.main reports completion when the table is created") {
