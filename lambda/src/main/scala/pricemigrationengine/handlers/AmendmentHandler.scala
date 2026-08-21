@@ -187,12 +187,6 @@ object AmendmentHandler extends CohortHandler {
             )
           )
         }
-        case null =>
-          ZIO.fail(
-            AmendmentFailure(
-              s"[7f2bf362] unexpected amendment attempt result while processing subscription: ${item.subscriptionName}"
-            )
-          )
       }
     } yield updatedItem).foldZIO(
       failure = {
