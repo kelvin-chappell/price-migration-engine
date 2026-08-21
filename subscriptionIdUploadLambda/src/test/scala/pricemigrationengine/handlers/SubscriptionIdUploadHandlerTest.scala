@@ -39,26 +39,22 @@ class SubscriptionIdUploadHandlerTest extends munit.FunSuite {
 
     val stubS3: Layer[Nothing, S3] = ZLayer.succeed(new S3 {
 
-      def loadTestResource(path: String): ZIO[Scope, S3Failure, InputStream] = {
-        ZIO
-          .fromAutoCloseable(ZIO.attempt(getClass.getResourceAsStream(path)))
-          .mapError(ex => S3Failure(s"Failed to load test resource: $ex"))
-      }
+      def loadTestResource(path: String): InputStream = getClass.getResourceAsStream(path)
 
-      override def getObject(s3Location: S3Location): ZIO[Scope, S3Failure, InputStream] =
+      override def getObject(s3Location: S3Location): InputStream =
         s3Location match {
           case S3Location("price-migration-engine-dev", "cohortName/subscription-numbers.csv") =>
             loadTestResource("/Handlers/SubscriptionIdUploadHandler/subscription-numbers.csv")
-          case _ => ZIO.fail(S3Failure(s"Unexpected location: $s3Location"))
+          case _ => throw new RuntimeException(s"Unexpected location: $s3Location")
         }
 
       override def putObject(
           s3Location: S3Location,
           file: File,
           cannedAccessControlList: Option[ObjectCannedACL]
-      ): IO[S3Failure, PutObjectResponse] = ???
+      ): PutObjectResponse = ???
 
-      override def deleteObject(s3Location: S3Location): IO[S3Failure, Unit] = ZIO.succeed(())
+      override def deleteObject(s3Location: S3Location): Unit = ()
     })
 
     assertEquals(
