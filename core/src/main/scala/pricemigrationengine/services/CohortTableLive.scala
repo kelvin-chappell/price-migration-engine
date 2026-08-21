@@ -17,65 +17,61 @@ object CohortTableLive {
   private val ProcessingStageAndDateIndexName = "ProcessingStageAndDateIndexV1"
 
   private implicit val cohortItemDeserialiser: DynamoDBDeserialiser[CohortItem] = { cohortItem =>
-    ZIO
-      .fromEither(
-        for {
-          subscriptionNumber <- getStringFromResults(cohortItem, keyAttribName)
-          processingStage <- getCohortTableFilter(cohortItem, "processingStage")
-          amendmentEffectiveDate <- getOptionalDateFromResults(cohortItem, "amendmentEffectiveDate")
-          currency <- getOptionalStringFromResults(cohortItem, "currency")
-          oldPrice <- getOptionalBigDecimalFromResults(cohortItem, "oldPrice")
-          estimatedNewPrice <- getOptionalBigDecimalFromResults(cohortItem, "estimatedNewPrice")
-          billingPeriod <- getOptionalStringFromResults(cohortItem, "billingPeriod")
-          whenEstimationDone <- getOptionalInstantFromResults(cohortItem, "whenEstimationDone")
-          salesforcePriceRiseId <- getOptionalStringFromResults(cohortItem, "salesforcePriceRiseId")
-          whenSfShowEstimate <- getOptionalInstantFromResults(cohortItem, "whenSfShowEstimate")
-          commsPrice <- getOptionalBigDecimalFromResults(cohortItem, "commsPrice")
-          newPrice <- getOptionalBigDecimalFromResults(cohortItem, "newPrice")
-          newSubscriptionId <- getOptionalStringFromResults(cohortItem, "newSubscriptionId")
-          whenAmendmentDone <- getOptionalInstantFromResults(cohortItem, "whenAmendmentDone")
-          whenNotificationSent <- getOptionalInstantFromResults(cohortItem, "whenNotificationSent")
-          whenNotificationSentWrittenToSalesforce <-
-            getOptionalInstantFromResults(cohortItem, "whenNotificationSentWrittenToSalesforce")
-          cancellationReason <-
-            getOptionalStringFromResults(cohortItem, "cancellationReason")
-          migrationExtraAttributes <- getOptionalStringFromResults(cohortItem, "migrationExtraAttributes")
-          ex_2025N4_label <- getOptionalStringFromResults(cohortItem, "ex_2025N4_label")
-          ex_2025N4_group <- getOptionalStringFromResults(cohortItem, "ex_2025N4_group")
-          ex_2025N4_canvas <- getOptionalStringFromResults(cohortItem, "ex_2025N4_canvas")
-          ex_2025N4_rateplan_current <- getOptionalStringFromResults(cohortItem, "ex_2025N4_rateplan_current")
-          ex_2025N4_rateplan_target <- getOptionalStringFromResults(cohortItem, "ex_2025N4_rateplan_target")
-          delayN4AmendmentUntil <- getOptionalDateFromResults(cohortItem, "delayN4AmendmentUntil")
-          ex_membership2025_country <- getOptionalStringFromResults(cohortItem, "ex_membership2025_country")
-        } yield CohortItem(
-          subscriptionName = subscriptionNumber,
-          processingStage = processingStage,
-          amendmentEffectiveDate = amendmentEffectiveDate,
-          currency = currency,
-          oldPrice = oldPrice,
-          commsPrice = commsPrice,
-          estimatedNewPrice = estimatedNewPrice,
-          billingPeriod = billingPeriod,
-          whenEstimationDone = whenEstimationDone,
-          salesforcePriceRiseId = salesforcePriceRiseId,
-          whenSfShowEstimate = whenSfShowEstimate,
-          newPrice = newPrice,
-          newSubscriptionId = newSubscriptionId,
-          whenAmendmentDone = whenAmendmentDone,
-          whenNotificationSent = whenNotificationSent,
-          whenNotificationSentWrittenToSalesforce = whenNotificationSentWrittenToSalesforce,
-          cancellationReason = cancellationReason,
-          migrationExtraAttributes = migrationExtraAttributes,
-          ex_2025N4_label = ex_2025N4_label,
-          ex_2025N4_group = ex_2025N4_group,
-          ex_2025N4_canvas = ex_2025N4_canvas,
-          ex_2025N4_rateplan_current = ex_2025N4_rateplan_current,
-          ex_2025N4_rateplan_target = ex_2025N4_rateplan_target,
-          delayN4AmendmentUntil = delayN4AmendmentUntil,
-          ex_membership2025_country = ex_membership2025_country
-        )
-      )
-      .mapError(e => DynamoDBZIOError(e))
+    (for {
+      subscriptionNumber <- getStringFromResults(cohortItem, keyAttribName)
+      processingStage <- getCohortTableFilter(cohortItem, "processingStage")
+      amendmentEffectiveDate <- getOptionalDateFromResults(cohortItem, "amendmentEffectiveDate")
+      currency <- getOptionalStringFromResults(cohortItem, "currency")
+      oldPrice <- getOptionalBigDecimalFromResults(cohortItem, "oldPrice")
+      estimatedNewPrice <- getOptionalBigDecimalFromResults(cohortItem, "estimatedNewPrice")
+      billingPeriod <- getOptionalStringFromResults(cohortItem, "billingPeriod")
+      whenEstimationDone <- getOptionalInstantFromResults(cohortItem, "whenEstimationDone")
+      salesforcePriceRiseId <- getOptionalStringFromResults(cohortItem, "salesforcePriceRiseId")
+      whenSfShowEstimate <- getOptionalInstantFromResults(cohortItem, "whenSfShowEstimate")
+      commsPrice <- getOptionalBigDecimalFromResults(cohortItem, "commsPrice")
+      newPrice <- getOptionalBigDecimalFromResults(cohortItem, "newPrice")
+      newSubscriptionId <- getOptionalStringFromResults(cohortItem, "newSubscriptionId")
+      whenAmendmentDone <- getOptionalInstantFromResults(cohortItem, "whenAmendmentDone")
+      whenNotificationSent <- getOptionalInstantFromResults(cohortItem, "whenNotificationSent")
+      whenNotificationSentWrittenToSalesforce <-
+        getOptionalInstantFromResults(cohortItem, "whenNotificationSentWrittenToSalesforce")
+      cancellationReason <-
+        getOptionalStringFromResults(cohortItem, "cancellationReason")
+      migrationExtraAttributes <- getOptionalStringFromResults(cohortItem, "migrationExtraAttributes")
+      ex_2025N4_label <- getOptionalStringFromResults(cohortItem, "ex_2025N4_label")
+      ex_2025N4_group <- getOptionalStringFromResults(cohortItem, "ex_2025N4_group")
+      ex_2025N4_canvas <- getOptionalStringFromResults(cohortItem, "ex_2025N4_canvas")
+      ex_2025N4_rateplan_current <- getOptionalStringFromResults(cohortItem, "ex_2025N4_rateplan_current")
+      ex_2025N4_rateplan_target <- getOptionalStringFromResults(cohortItem, "ex_2025N4_rateplan_target")
+      delayN4AmendmentUntil <- getOptionalDateFromResults(cohortItem, "delayN4AmendmentUntil")
+      ex_membership2025_country <- getOptionalStringFromResults(cohortItem, "ex_membership2025_country")
+    } yield CohortItem(
+      subscriptionName = subscriptionNumber,
+      processingStage = processingStage,
+      amendmentEffectiveDate = amendmentEffectiveDate,
+      currency = currency,
+      oldPrice = oldPrice,
+      commsPrice = commsPrice,
+      estimatedNewPrice = estimatedNewPrice,
+      billingPeriod = billingPeriod,
+      whenEstimationDone = whenEstimationDone,
+      salesforcePriceRiseId = salesforcePriceRiseId,
+      whenSfShowEstimate = whenSfShowEstimate,
+      newPrice = newPrice,
+      newSubscriptionId = newSubscriptionId,
+      whenAmendmentDone = whenAmendmentDone,
+      whenNotificationSent = whenNotificationSent,
+      whenNotificationSentWrittenToSalesforce = whenNotificationSentWrittenToSalesforce,
+      cancellationReason = cancellationReason,
+      migrationExtraAttributes = migrationExtraAttributes,
+      ex_2025N4_label = ex_2025N4_label,
+      ex_2025N4_group = ex_2025N4_group,
+      ex_2025N4_canvas = ex_2025N4_canvas,
+      ex_2025N4_rateplan_current = ex_2025N4_rateplan_current,
+      ex_2025N4_rateplan_target = ex_2025N4_rateplan_target,
+      delayN4AmendmentUntil = delayN4AmendmentUntil,
+      ex_membership2025_country = ex_membership2025_country
+    )).left.map(DynamoDbError(_))
   }
 
   private implicit val cohortItemUpdateSerialiser: DynamoDBUpdateSerialiser[CohortItem] =
@@ -139,10 +135,10 @@ object CohortTableLive {
 
   def impl(
       cohortSpec: CohortSpec
-  ): ZLayer[DynamoDBZIO with StageConfig with CohortTableConfig with Logging, ConfigFailure, CohortTable] = {
+  ): ZLayer[DynamoDb with StageConfig with CohortTableConfig with Logging, ConfigFailure, CohortTable] = {
     ZLayer.fromZIO {
       for {
-        dynamoDbZio <- ZIO.service[DynamoDBZIO]
+        dynamoDbZio <- ZIO.service[DynamoDb]
         stageConfig <- ZIO.service[StageConfig]
         tableName = cohortSpec.tableName(stageConfig.stage)
         cohortTableConfig <- ZIO.service[CohortTableConfig]
@@ -178,22 +174,31 @@ object CohortTableLive {
               .limit(cohortTableConfig.batchSize)
               .build()
           logging.info(s"[72E0D1FC] queryRequest: ${queryRequest.toString}")
-          dynamoDbZio.query(queryRequest).mapError(error => CohortFetchFailure(error.toString))
+          ZStream
+            .fromIterator(dynamoDbZio.query(queryRequest))
+            .flatMap {
+              case Right(item) => ZStream.succeed(item)
+              case Left(error) => ZStream.fail(error)
+            }
+            .mapError(error => CohortFetchFailure(error.toString))
         }
 
         override def create(cohortItem: CohortItem): IO[Failure, Unit] = {
-          dynamoDbZio
-            .create(table = tableName, keyName = keyAttribName, value = cohortItem)
+          ZIO
+            .fromEither(dynamoDbZio.create(table = tableName, keyName = keyAttribName, value = cohortItem))
             .mapError {
-              case DynamoDBZIOError(reason, _: Some[_]) =>
+              case DynamoDbError(reason, _: Some[_]) =>
                 CohortItemAlreadyPresentFailure(reason)
               case error => CohortCreateFailure(error.toString)
             }
         }
 
         override def update(cohortItem: CohortItem): ZIO[Any, CohortUpdateFailure, Unit] = {
-          dynamoDbZio
-            .update(table = tableName, key = CohortTableKey(cohortItem.subscriptionName), value = cohortItem)
+          ZIO
+            .fromEither(
+              dynamoDbZio
+                .update(table = tableName, key = CohortTableKey(cohortItem.subscriptionName), value = cohortItem)
+            )
             .mapError(error => CohortUpdateFailure(error.toString))
             .tapBoth(
               e => ZIO.succeed(logging.error(s"Failed to update Cohort table: $e")),
@@ -206,10 +211,14 @@ object CohortTableLive {
             .tableName(tableName)
             .limit(cohortTableConfig.batchSize)
             .build()
-          for {
-            queryResults <- dynamoDbZio.scan(queryRequest).mapError(error => CohortFetchFailure(error.toString))
-          } yield queryResults
-        }.mapError(error => CohortFetchFailure(error.toString))
+          ZStream
+            .fromIterator(dynamoDbZio.scan(queryRequest))
+            .flatMap {
+              case Right(item) => ZStream.succeed(item)
+              case Left(error) => ZStream.fail(error)
+            }
+            .mapError(error => CohortFetchFailure(error.toString))
+        }
       }
     }
   }

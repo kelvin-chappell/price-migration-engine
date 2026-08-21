@@ -99,7 +99,7 @@ object SalesforcePriceRiseCreationHandler extends CohortHandler {
       EnvConfig.cohortTable.layer,
       EnvConfig.salesforce.layer,
       EnvConfig.stage.layer,
-      DynamoDBZIOLive.impl,
+      DynamoDbLive.impl,
       DynamoDBClientLive.impl,
       CohortTableLive.impl(input),
       SalesforceClientLive.impl,

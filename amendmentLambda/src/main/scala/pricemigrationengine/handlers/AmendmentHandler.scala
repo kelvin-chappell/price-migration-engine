@@ -382,7 +382,7 @@ object AmendmentHandler extends CohortHandler {
       EnvConfig.cohortTable.layer,
       EnvConfig.zuora.layer,
       EnvConfig.stage.layer,
-      DynamoDBZIOLive.impl,
+      DynamoDbLive.impl,
       DynamoDBClientLive.impl,
       CohortTableLive.impl(input),
       ZuoraLive.impl,

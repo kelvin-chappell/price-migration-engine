@@ -88,7 +88,7 @@ object SubscriptionIdUploadHandler extends CohortHandler {
       EnvConfig.cohortTable.layer,
       EnvConfig.stage.layer,
       DynamoDBClientLive.impl,
-      DynamoDBZIOLive.impl,
+      DynamoDbLive.impl,
       CohortTableLive.impl(input),
       S3Live.impl
     )

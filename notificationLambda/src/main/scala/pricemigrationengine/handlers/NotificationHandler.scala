@@ -36,7 +36,7 @@ object NotificationHandler extends CohortHandler {
       EnvConfig.zuora.layer,
       EnvConfig.stage.layer,
       DynamoDBClientLive.impl,
-      DynamoDBZIOLive.impl,
+      DynamoDbLive.impl,
       CohortTableLive.impl(input),
       SalesforceClientLive.impl,
       EmailSenderLive.impl,

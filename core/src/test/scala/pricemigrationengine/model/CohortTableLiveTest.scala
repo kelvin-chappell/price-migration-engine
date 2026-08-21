@@ -47,29 +47,29 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedRequest: Option[QueryRequest] = None
     var receivedDeserialiser: Option[DynamoDBDeserialiser[CohortItem]] = None
 
-    val stubDynamoDBZIO = ZLayer.succeed(
-      new DynamoDBZIO {
+    val stubDynamoDb = ZLayer.succeed(
+      new DynamoDb {
 
         override def query[A](
             query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
+        )(implicit deserializer: DynamoDBDeserialiser[A]): Iterator[Either[DynamoDbError, A]] = {
           receivedDeserialiser = Some(deserializer.asInstanceOf[DynamoDBDeserialiser[CohortItem]])
           receivedRequest = Some(query)
-          ZStream(item1, item2).mapZIO(item => ZIO.attempt(item.asInstanceOf[A]).orElseFail(DynamoDBZIOError("")))
+          Iterator(item1, item2).map(item => Right(item.asInstanceOf[A]))
         }
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def scan[A](query: ScanRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
       }
     )
 
@@ -79,7 +79,7 @@ class CohortTableLiveTest extends munit.FunSuite {
           resultList <- CohortTable
             .fetch(ReadyForEstimation, None)
             .provideLayer(
-              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDBZIO ++ ConsoleLogging.impl(
+              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging.impl(
                 "TestCohort"
               ) >>> CohortTableLive.impl(cohortSpec)
             )
@@ -98,29 +98,27 @@ class CohortTableLiveTest extends munit.FunSuite {
       Map(":processingStage" -> AttributeValue.builder.s("ReadyForEstimation").build()).asJava
     )
     assertEquals(
-      Runner.unsafeRunSync(Runtime.default)(
-        receivedDeserialiser.get.deserialise(
-          Map(
-            "subscriptionNumber" -> AttributeValue.builder.s(subscriptionId).build(),
-            "processingStage" -> AttributeValue.builder.s(processingStage.value).build(),
-            "currency" -> AttributeValue.builder.s(currency).build(),
-            "oldPrice" -> AttributeValue.builder.n(oldPrice.toString).build(),
-            "estimatedNewPrice" -> AttributeValue.builder.n(estimatedNewPrice.toString).build(),
-            "billingPeriod" -> AttributeValue.builder.s(billingPeriod).build(),
-            "whenEstimationDone" -> AttributeValue.builder.s(formatTimestamp(whenEstimationDone)).build(),
-            "salesforcePriceRiseId" -> AttributeValue.builder.s(priceRiseId).build(),
-            "whenSfShowEstimate" -> AttributeValue.builder.s(formatTimestamp(sfShowEstimate)).build(),
-            "amendmentEffectiveDate" -> AttributeValue.builder.s(amendmentEffectiveDate.toString).build(),
-            "newPrice" -> AttributeValue.builder.n(newPrice.toString).build(),
-            "newSubscriptionId" -> AttributeValue.builder.s(newSubscriptionId).build(),
-            "whenAmendmentDone" -> AttributeValue.builder.s(formatTimestamp(whenAmendmentDone)).build(),
-            "whenNotificationSent" -> AttributeValue.builder.s(formatTimestamp(whenNotificationSent)).build(),
-            "whenNotificationSentWrittenToSalesforce" ->
-              AttributeValue.builder.s(formatTimestamp(whenNotificationSentWrittenToSalesforce)).build()
-          ).asJava
-        )
+      receivedDeserialiser.get.deserialise(
+        Map(
+          "subscriptionNumber" -> AttributeValue.builder.s(subscriptionId).build(),
+          "processingStage" -> AttributeValue.builder.s(processingStage.value).build(),
+          "currency" -> AttributeValue.builder.s(currency).build(),
+          "oldPrice" -> AttributeValue.builder.n(oldPrice.toString).build(),
+          "estimatedNewPrice" -> AttributeValue.builder.n(estimatedNewPrice.toString).build(),
+          "billingPeriod" -> AttributeValue.builder.s(billingPeriod).build(),
+          "whenEstimationDone" -> AttributeValue.builder.s(formatTimestamp(whenEstimationDone)).build(),
+          "salesforcePriceRiseId" -> AttributeValue.builder.s(priceRiseId).build(),
+          "whenSfShowEstimate" -> AttributeValue.builder.s(formatTimestamp(sfShowEstimate)).build(),
+          "amendmentEffectiveDate" -> AttributeValue.builder.s(amendmentEffectiveDate.toString).build(),
+          "newPrice" -> AttributeValue.builder.n(newPrice.toString).build(),
+          "newSubscriptionId" -> AttributeValue.builder.s(newSubscriptionId).build(),
+          "whenAmendmentDone" -> AttributeValue.builder.s(formatTimestamp(whenAmendmentDone)).build(),
+          "whenNotificationSent" -> AttributeValue.builder.s(formatTimestamp(whenNotificationSent)).build(),
+          "whenNotificationSentWrittenToSalesforce" ->
+            AttributeValue.builder.s(formatTimestamp(whenNotificationSentWrittenToSalesforce)).build()
+        ).asJava
       ),
-      Success(
+      Right(
         CohortItem(
           subscriptionName = subscriptionId,
           processingStage = processingStage,
@@ -141,33 +139,32 @@ class CohortTableLiveTest extends munit.FunSuite {
       )
     )
   }
-
   test("Query the PriceMigrationEngine with the correct index for date range queries") {
     var receivedRequest: Option[QueryRequest] = None
     val expectedLatestDate = LocalDate.now()
 
-    val stubDynamoDBZIO = ZLayer.succeed(
-      new DynamoDBZIO {
+    val stubDynamoDb = ZLayer.succeed(
+      new DynamoDb {
 
         override def query[A](
             query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
+        )(implicit deserializer: DynamoDBDeserialiser[A]): Iterator[Either[DynamoDbError, A]] = {
           receivedRequest = Some(query)
-          ZStream(item1).mapZIO(item => ZIO.attempt(item.asInstanceOf[A]).orElseFail(DynamoDBZIOError("")))
+          Iterator(item1).map(item => Right(item.asInstanceOf[A]))
         }
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def scan[A](query: ScanRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
       }
     )
 
@@ -177,7 +174,7 @@ class CohortTableLiveTest extends munit.FunSuite {
           resultList <- CohortTable
             .fetch(ReadyForEstimation, Some(expectedLatestDate))
             .provideLayer(
-              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDBZIO ++ ConsoleLogging.impl(
+              stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging.impl(
                 "TestCohort"
               ) >>> CohortTableLive.impl(cohortSpec)
             )
@@ -210,32 +207,32 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedKeySerialiser: Option[DynamoDBSerialiser[CohortTableKey]] = None
     var receivedValueSerialiser: Option[DynamoDBUpdateSerialiser[CohortItem]] = None
 
-    val stubDynamoDBZIO = ZLayer.succeed(
-      new DynamoDBZIO {
+    val stubDynamoDb = ZLayer.succeed(
+      new DynamoDb {
 
         override def query[A](query: QueryRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): IO[DynamoDBZIOError, Unit] = {
+        ): Either[DynamoDbError, Unit] = {
           tableUpdated = Some(table)
           receivedKey = Some(key.asInstanceOf[CohortTableKey])
           receivedUpdate = Some(value.asInstanceOf[CohortItem])
           receivedKeySerialiser = Some(keySerializer.asInstanceOf[DynamoDBSerialiser[CohortTableKey]])
           receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
-          ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
+          Right(())
         }
 
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def scan[A](query: ScanRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
       }
     )
 
@@ -262,7 +259,7 @@ class CohortTableLiveTest extends munit.FunSuite {
         CohortTable
           .update(cohortItem)
           .provideLayer(
-            stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDBZIO ++ ConsoleLogging
+            stubCohortTableConfiguration ++ stubStageConfiguration ++ stubDynamoDb ++ ConsoleLogging
               .impl("TestCohort") >>>
               CohortTableLive.impl(cohortSpec)
           )
@@ -398,29 +395,29 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedUpdate: Option[CohortItem] = None
     var receivedValueSerialiser: Option[DynamoDBUpdateSerialiser[CohortItem]] = None
 
-    val stubDynamoDBZIO = ZLayer.succeed(
-      new DynamoDBZIO {
+    val stubDynamoDb = ZLayer.succeed(
+      new DynamoDb {
 
         override def query[A](query: QueryRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): IO[DynamoDBZIOError, Unit] = {
+        ): Either[DynamoDbError, Unit] = {
           receivedValueSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBUpdateSerialiser[CohortItem]])
           receivedUpdate = Some(value.asInstanceOf[CohortItem])
-          ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
+          Right(())
         }
 
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def scan[A](query: ScanRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
       }
     )
 
@@ -437,7 +434,7 @@ class CohortTableLiveTest extends munit.FunSuite {
         CohortTable
           .update(cohortItem)
           .provideLayer(
-            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDBZIO ++ ConsoleLogging
+            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDb ++ ConsoleLogging
               .impl("TestCohort") >>>
               CohortTableLive.impl(cohortSpec)
           )
@@ -473,30 +470,30 @@ class CohortTableLiveTest extends munit.FunSuite {
     var receivedInsert: Option[CohortItem] = None
     var receivedSerialiser: Option[DynamoDBSerialiser[CohortItem]] = None
 
-    val stubDynamoDBZIO = ZLayer.succeed(
-      new DynamoDBZIO {
+    val stubDynamoDb = ZLayer.succeed(
+      new DynamoDb {
 
         override def query[A](query: QueryRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
 
         override def update[A, B](table: String, key: A, value: B)(implicit
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
-        ): IO[DynamoDBZIOError, Unit] = ???
+        ): Either[DynamoDbError, Unit] = ???
 
         override def create[A](table: String, keyName: String, value: A)(implicit
             valueSerializer: DynamoDBSerialiser[A]
-        ): IO[DynamoDBZIOError, Unit] = {
+        ): Either[DynamoDbError, Unit] = {
           tableUpdated = Some(table)
           receivedInsert = Some(value.asInstanceOf[CohortItem])
           receivedSerialiser = Some(valueSerializer.asInstanceOf[DynamoDBSerialiser[CohortItem]])
-          ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
+          Right(())
         }
 
         override def scan[A](query: ScanRequest)(implicit
             deserializer: DynamoDBDeserialiser[A]
-        ): ZStream[Any, DynamoDBZIOError, A] = ???
+        ): Iterator[Either[DynamoDbError, A]] = ???
       }
     )
 
@@ -507,7 +504,7 @@ class CohortTableLiveTest extends munit.FunSuite {
         CohortTable
           .create(cohortItem)
           .provideLayer(
-            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDBZIO ++ ConsoleLogging
+            stubStageConfiguration ++ stubCohortTableConfiguration ++ stubDynamoDb ++ ConsoleLogging
               .impl("TestCohort") >>>
               CohortTableLive.impl(cohortSpec)
           )
