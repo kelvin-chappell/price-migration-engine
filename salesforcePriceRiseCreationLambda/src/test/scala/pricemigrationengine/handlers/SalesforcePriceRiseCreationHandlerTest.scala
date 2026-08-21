@@ -36,8 +36,8 @@ class SalesforcePriceRiseCreationHandlerTest extends munit.FunSuite {
 
   private val stubLogging: ZLayer[Any, Nothing, Logging] =
     ZLayer.succeed(new Logging {
-      def info(s: String): UIO[Unit] = ZIO.unit
-      def error(s: String): UIO[Unit] = ZIO.unit
+      def info(s: String): Unit = ()
+      def error(s: String): Unit = ()
     })
 
   private def stubCohortTable(updated: ArrayBuffer[CohortItem], item: CohortItem): ZLayer[Any, Nothing, CohortTable] =

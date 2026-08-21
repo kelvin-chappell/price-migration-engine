@@ -133,7 +133,7 @@ object ZuoraLive {
         config <- ZIO.service[ZuoraConfig]
         accessToken <- fetchedAccessToken(config)
           .mapError(failure => ConfigFailure(failure.reason))
-          .tap(token => logging.info(s"Fetched Zuora access token: $token"))
+          .tap(token => ZIO.succeed(logging.info(s"Fetched Zuora access token: $token")))
       } yield new Zuora {
 
         private def retry[E, A](effect: => ZIO[Any, E, A]) =
@@ -173,8 +173,8 @@ object ZuoraLive {
           get[ZuoraSubscription](s"subscriptions/$subscriptionNumber")
             .mapError(e => ZuoraFetchFailure(s"Subscription $subscriptionNumber: ${e.reason}"))
             .tapBoth(
-              e => logging.error(s"[4b4b9e39] Failed to fetch subscription $subscriptionNumber: $e"),
-              _ => logging.info(s"[4f1645c4] Fetched subscription $subscriptionNumber")
+              e => ZIO.succeed(logging.error(s"[4b4b9e39] Failed to fetch subscription $subscriptionNumber: $e")),
+              _ => ZIO.succeed(logging.info(s"[4f1645c4] Fetched subscription $subscriptionNumber"))
             )
 
         override def fetchAccount(
@@ -189,10 +189,15 @@ object ZuoraLive {
             )
             .tapBoth(
               e =>
-                logging.error(
-                  s"[8a07429d] Failed to fetch account ${accountNumber} for subscription $subscriptionNumber: $e"
+                ZIO.succeed(
+                  logging.error(
+                    s"[8a07429d] Failed to fetch account ${accountNumber} for subscription $subscriptionNumber: $e"
+                  )
                 ),
-              _ => logging.info(s"[7951c941] Fetched account $accountNumber for subscription $subscriptionNumber")
+              _ =>
+                ZIO.succeed(
+                  logging.info(s"[7951c941] Fetched account $accountNumber for subscription $subscriptionNumber")
+                )
             )
 
         // See https://www.zuora.com/developer/api-reference/#operation/POST_BillingPreviewRun
@@ -214,8 +219,8 @@ object ZuoraLive {
             ).mapError(e => ZuoraFetchFailure(s"[9445e7fd] Invoice preview for account $accountId: ${e.reason}"))
           )
             .tapBoth(
-              e => logging.error(s"[26de9125] Failed to fetch invoice preview for account $accountId: $e"),
-              _ => logging.info(s"[45d846a0] Fetched invoice preview for account $accountId")
+              e => ZIO.succeed(logging.error(s"[26de9125] Failed to fetch invoice preview for account $accountId: $e")),
+              _ => ZIO.succeed(logging.info(s"[45d846a0] Fetched invoice preview for account $accountId"))
             )
         }
 
@@ -224,8 +229,8 @@ object ZuoraLive {
             get[ZuoraProductCatalogue](path = "catalog/products", params = Map("page" -> idx.toString))
               .mapError(e => ZuoraFetchFailure(s"Product catalogue: ${e.reason}"))
               .tapBoth(
-                e => logging.error(s"[fdf4fe69] Failed to fetch product catalogue page $idx: $e"),
-                _ => logging.info(s"[50dbdee6] Fetched product catalogue page $idx")
+                e => ZIO.succeed(logging.error(s"[fdf4fe69] Failed to fetch product catalogue page $idx: $e")),
+                _ => ZIO.succeed(logging.info(s"[50dbdee6] Fetched product catalogue page $idx"))
               )
 
           def hasNextPage(catalogue: ZuoraProductCatalogue) = catalogue.nextPage.isDefined
@@ -286,8 +291,10 @@ object ZuoraLive {
           //    essentially if the .retry failed, this should result in a ZIO fail of the calling code.
           (for {
             jobReport <- getJobReport(jobId)
-            _ <- logging.info(
-              s"[4b4e379c] jobReport: ${jobReport}"
+            _ <- ZIO.succeed(
+              logging.info(
+                s"[4b4e379c] jobReport: ${jobReport}"
+              )
             )
             result <- {
               if (AsyncJobReport.isCompletedCompleted(jobReport)) { ZIO.succeed(Right(())) }
@@ -331,8 +338,10 @@ object ZuoraLive {
           // If for any reason Zuora doesn't succeed that job, the lambda is going to
           // be terminated by AWS.
           for {
-            _ <- logging.info(
-              s"[18943ad2] submitting asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}, payload: ${payload}"
+            _ <- ZIO.succeed(
+              logging.info(
+                s"[18943ad2] submitting asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}, payload: ${payload}"
+              )
             )
             submissionTicket <- submitAsynchronousOrderRequest(
               subscriptionNumber,
@@ -351,8 +360,10 @@ object ZuoraLive {
                   )
                 )
               }
-            _ <- logging.info(
-              s"[fe478094] submitted asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}, submission ticket: ${submissionTicket}"
+            _ <- ZIO.succeed(
+              logging.info(
+                s"[fe478094] submitted asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}, submission ticket: ${submissionTicket}"
+              )
             )
             monitorResult <- jobMonitor(submissionTicket.jobId)
               .mapError(e =>
@@ -369,8 +380,10 @@ object ZuoraLive {
                   s"[5eed7eb0] We got a Left from the monitor 🤔, jobId: ${submissionTicket.jobId}, error: ${e}"
                 )
               )
-            _ <- logging.info(
-              s"[62d66c48] completed asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}"
+            _ <- ZIO.succeed(
+              logging.info(
+                s"[62d66c48] completed asynchronous order for subscription ${subscriptionNumber}, operation: ${operationDescriptionForLogging}"
+              )
             )
           } yield ZIO.succeed(())
         }

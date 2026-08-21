@@ -23,7 +23,7 @@ object CohortStateMachineLive {
       } yield new CohortStateMachine {
         override def startExecution(spec: CohortSpec): IO[CohortStateMachineFailure, StartExecutionResponse] =
           for {
-            _ <- logging.info(s"Starting execution with input: ${spec.toString} ...")
+            _ <- ZIO.succeed(logging.info(s"Starting execution with input: ${spec.toString} ..."))
             time <- Clock.instant
             timeStr <- ZIO
               .attempt(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").withZone(ZoneId.systemDefault).format(time))
@@ -39,7 +39,7 @@ object CohortStateMachineLive {
                 )
               )
               .mapError(e => CohortStateMachineFailure(s"Failed to start execution: $e"))
-              .tap(result => logging.info(s"Started execution: $result"))
+              .tap(result => ZIO.succeed(logging.info(s"Started execution: $result")))
           } yield result
       }
     }

@@ -28,7 +28,7 @@ object CohortSpecTableLive {
               .fromEither(CohortSpec.fromDynamoDbItem(result))
               .mapError(e => CohortSpecFetchFailure(s"Failed to parse '$result': ${e.reason}"))
           )
-        } yield specs.toSet).tap(specs => logging.info(s"Fetched ${specs.size} cohort specs"))
+        } yield specs.toSet).tap(specs => ZIO.succeed(logging.info(s"Fetched ${specs.size} cohort specs")))
       }
 
       override def update(spec: CohortSpec): ZIO[Any, CohortSpecUpdateFailure, Unit] =

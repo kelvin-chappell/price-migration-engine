@@ -53,7 +53,7 @@ object S3Live {
           (for {
             listObjectsResponse <- ZIO.attempt(s3.listObjects(listObjectsRequest))
             _ <- ZIO.foreachDiscard(listObjectsResponse.contents.asScala)(obj =>
-              ZIO.attempt(s3.deleteObject(deleteObjectRequest(obj))) <* logging.info(s"Deleted $obj")
+              ZIO.attempt(s3.deleteObject(deleteObjectRequest(obj))) <* ZIO.succeed(logging.info(s"Deleted $obj"))
             )
           } yield ()).mapError(ex => S3Failure(s"Failed to delete s3 object $s3Location: ${ex.getMessage}"))
         }

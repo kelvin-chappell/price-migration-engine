@@ -128,8 +128,10 @@ object SalesforceClientLive {
 
         for {
           authorization <- performRequestAndParseAnswer[SalesforceAuthDetails](request)
-          _ <- logging.info(
-            s"[c6f8f9f7] Authenticated with salesforce using user:${config.userName} and client: ${config.clientId}"
+          _ <- ZIO.succeed(
+            logging.info(
+              s"[c6f8f9f7] Authenticated with salesforce using user:${config.userName} and client: ${config.clientId}"
+            )
           )
         } yield authorization
       }
@@ -156,7 +158,9 @@ object SalesforceClientLive {
 
           for {
             subscription <- performRequestAndParseAnswer[SalesforceSubscription](request).tap(subscription =>
-              logging.info(s"[ce8f4177] Successfully loaded subscription ${subscription.Name} from Salesforce")
+              ZIO.succeed(
+                logging.info(s"[ce8f4177] Successfully loaded subscription ${subscription.Name} from Salesforce")
+              )
             )
           } yield subscription
         }
@@ -173,7 +177,7 @@ object SalesforceClientLive {
 
           for {
             contact <- performRequestAndParseAnswer[SalesforceContact](request).tap(contact =>
-              logging.info(s"[0309af88] Successfully loaded contact: ${contact.Id}")
+              ZIO.succeed(logging.info(s"[0309af88] Successfully loaded contact: ${contact.Id}"))
             )
           } yield contact
         }
@@ -196,8 +200,10 @@ object SalesforceClientLive {
 
           for {
             priceRise <- performRequestAndParseAnswer[SalesforcePriceRiseCreationResponse](request).tap(priceRise =>
-              logging.info(
-                s"[e3e340a7] Successfully created Price_Rise__c object: ${priceRise.id}"
+              ZIO.succeed(
+                logging.info(
+                  s"[e3e340a7] Successfully created Price_Rise__c object: ${priceRise.id}"
+                )
               )
             )
           } yield priceRise
@@ -221,8 +227,14 @@ object SalesforceClientLive {
               .readTimeout(requestTimeout)
 
           performRequestSttpClient4(request).unit
-            .tapError(failure => logging.error(s"[bb7d65d1] Failed to update Price_Rise__c object: $failure"))
-            .tap(_ => logging.info(s"[bb7d65d1] Successfully updated Price_Rise__c object, priceRiseId: $priceRiseId"))
+            .tapError(failure =>
+              ZIO.succeed(logging.error(s"[bb7d65d1] Failed to update Price_Rise__c object: $failure"))
+            )
+            .tap(_ =>
+              ZIO.succeed(
+                logging.info(s"[bb7d65d1] Successfully updated Price_Rise__c object, priceRiseId: $priceRiseId")
+              )
+            )
         }
 
         override def getPriceRise(priceRiseId: String): IO[SalesforceClientFailure, SalesforcePriceRise] = {
@@ -237,8 +249,10 @@ object SalesforceClientLive {
 
           for {
             priceRise <- performRequestAndParseAnswer[SalesforcePriceRise](request).tap(priceRise =>
-              logging.info(
-                s"[774f676b] Successfully retrieved Salesforce price rise object, priceRiseId: ${priceRiseId}, priceRise: ${priceRise}"
+              ZIO.succeed(
+                logging.info(
+                  s"[774f676b] Successfully retrieved Salesforce price rise object, priceRiseId: ${priceRiseId}, priceRise: ${priceRise}"
+                )
               )
             )
           } yield priceRise

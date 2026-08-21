@@ -196,8 +196,8 @@ object CohortTableLive {
             .update(table = tableName, key = CohortTableKey(cohortItem.subscriptionName), value = cohortItem)
             .mapError(error => CohortUpdateFailure(error.toString))
             .tapBoth(
-              e => logging.error(s"Failed to update Cohort table: $e"),
-              _ => logging.info(s"Wrote ${cohortItem} to Cohort table")
+              e => ZIO.succeed(logging.error(s"Failed to update Cohort table: $e")),
+              _ => ZIO.succeed(logging.info(s"Wrote ${cohortItem} to Cohort table"))
             )
         }
 

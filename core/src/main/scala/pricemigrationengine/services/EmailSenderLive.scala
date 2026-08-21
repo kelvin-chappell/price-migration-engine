@@ -59,8 +59,10 @@ object EmailSenderLive {
             s"Failed to send sqs email message for sfContactId ${message.SfContactId}: ${ex.getMessage}"
           )
         }
-      _ <- logging.info(
-        s"Successfully sent email for sfContactId ${message.SfContactId} message id: ${result.messageId}, message: ${message}"
+      _ <- ZIO.succeed(
+        logging.info(
+          s"Successfully sent email for sfContactId ${message.SfContactId} message id: ${result.messageId}, message: ${message}"
+        )
       )
     } yield ()
 

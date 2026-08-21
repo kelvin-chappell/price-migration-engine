@@ -3,7 +3,7 @@ package pricemigrationengine.handlers
 import pricemigrationengine.model._
 import pricemigrationengine.services._
 import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
-import zio.{IO, Runtime, Unsafe, UIO, ZIO, ZLayer}
+import zio.{IO, Runtime, Unsafe, ZIO, ZLayer}
 
 import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicInteger
@@ -24,8 +24,8 @@ class MigrationHandlerTest extends munit.FunSuite {
 
   private val stubLogging: ZLayer[Any, Nothing, Logging] =
     ZLayer.succeed(new Logging {
-      def info(s: String): UIO[Unit] = ZIO.unit
-      def error(s: String): UIO[Unit] = ZIO.unit
+      def info(s: String): Unit = ()
+      def error(s: String): Unit = ()
     })
 
   private def stubCohortSpecTable(specs: Set[CohortSpec]): ZLayer[Any, Nothing, CohortSpecTable] =

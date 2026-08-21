@@ -29,7 +29,9 @@ object DynamoDBZIOLive {
               case Some(queryRequest) =>
                 for {
                   queryResult <- sendQueryRequest(queryRequest)
-                  _ <- logging.info(s"Received query results for batch with ${queryResult.items.asScala.length} items")
+                  _ <- ZIO.succeed(
+                    logging.info(s"Received query results for batch with ${queryResult.items.asScala.length} items")
+                  )
                   queryForNextBatch = Option(queryResult.lastEvaluatedKey)
                     .filterNot(_.isEmpty)
                     .map(lastEvaluatedKey => queryRequest.copy(x => x.exclusiveStartKey(lastEvaluatedKey)))
@@ -44,7 +46,7 @@ object DynamoDBZIOLive {
             queryRequest: QueryRequest
         ): ZIO[Any, DynamoDBZIOError, QueryResponse] = {
           for {
-            _ <- logging.info(s"Starting query: $queryRequest")
+            _ <- ZIO.succeed(logging.info(s"Starting query: $queryRequest"))
             results <-
               dynamoDbClient
                 .query(queryRequest)
@@ -67,7 +69,7 @@ object DynamoDBZIOLive {
               case Some(queryRequest) =>
                 for {
                   scanResult <- sendScanRequest(queryRequest)
-                  _ <- logging.info(s"Received query results for batch with ${scanResult.count} items")
+                  _ <- ZIO.succeed(logging.info(s"Received query results for batch with ${scanResult.count} items"))
                   queryForNextBatch = Option(scanResult.lastEvaluatedKey)
                     .filterNot(_.isEmpty)
                     .map(lastEvaluatedKey => queryRequest.copy(x => x.exclusiveStartKey(lastEvaluatedKey)))
@@ -82,7 +84,7 @@ object DynamoDBZIOLive {
             queryRequest: ScanRequest
         ): ZIO[Any, DynamoDBZIOError, ScanResponse] = {
           for {
-            _ <- logging.info(s"Starting scan: $queryRequest")
+            _ <- ZIO.succeed(logging.info(s"Starting scan: $queryRequest"))
             results <-
               dynamoDbClient
                 .scan(queryRequest)

@@ -69,7 +69,7 @@ object CohortTableDdlLive {
 
           val result = dynamoDbClient
             .updateContinuousBackups(enableBackups)
-            .tapError(_ => logging.info(s"Waiting to enable continuous backups ..."))
+            .tapError(_ => ZIO.succeed(logging.info(s"Waiting to enable continuous backups ...")))
             .retry(
               exponential(1.second) && recurs(8)
             )

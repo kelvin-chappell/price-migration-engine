@@ -1,12 +1,15 @@
 package pricemigrationengine.services
 
-import zio.{Console, UIO, ULayer, ZLayer}
+import zio.{ULayer, ZLayer}
 
 object ConsoleLogging {
 
-  def impl(cohortName: String): ULayer[Logging] =
-    ZLayer.succeed(new Logging {
-      override def info(s: String): UIO[Unit] = Console.printLine(s"cohortName: $cohortName, INFO: $s").orDie
-      override def error(s: String): UIO[Unit] = Console.printLine(s"cohortName: $cohortName, ERROR: $s").orDie
-    })
+  /** Plain, direct-style instance - use this from any code not yet ZIO-wrapped. */
+  def instance(cohortName: String): Logging = new Logging {
+    override def info(s: String): Unit = println(s"cohortName: $cohortName, INFO: $s")
+    override def error(s: String): Unit = println(s"cohortName: $cohortName, ERROR: $s")
+  }
+
+  /** ZIO-facing layer, kept only for handlers/services not yet converted to direct style. */
+  def impl(cohortName: String): ULayer[Logging] = ZLayer.succeed(instance(cohortName))
 }
