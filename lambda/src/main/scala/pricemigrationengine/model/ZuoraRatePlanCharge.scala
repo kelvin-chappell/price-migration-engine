@@ -1,9 +1,9 @@
 package pricemigrationengine.model
 
-import java.time.LocalDate
+import pricemigrationengine.model.given
+import upickle.default.*
 
-import pricemigrationengine.model.OptionReader // not sure why this import is needed as should be visible implicitly
-import upickle.default._
+import java.time.LocalDate
 
 case class ZuoraRatePlanCharge(
     productRatePlanChargeId: ZuoraProductRatePlanChargeId,
@@ -28,7 +28,7 @@ case class ZuoraRatePlanCharge(
 )
 
 object ZuoraRatePlanCharge {
-  given rw: ReadWriter[ZuoraRatePlanCharge] = macroRW
+  given ReadWriter[ZuoraRatePlanCharge] = macroRW
 
   /** Rate plan charge that corresponds with the given invoice item.
     */

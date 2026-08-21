@@ -52,7 +52,7 @@ case class CohortSpec(
 
 object CohortSpec {
 
-  given rw: ReadWriter[CohortSpec] = macroRW
+  given ReadWriter[CohortSpec] = macroRW
 
   def isValid(spec: CohortSpec): Boolean = {
     def isValidStringValue(s: String) = s.trim == s && s.nonEmpty && s.matches("[A-Za-z0-9-_]+")

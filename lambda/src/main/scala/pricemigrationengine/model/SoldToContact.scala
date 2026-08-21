@@ -8,5 +8,5 @@ case class SoldToContact(
 )
 
 object SoldToContact {
-  given rwSubscription: ReadWriter[SoldToContact] = macroRW
+  given ReadWriter[SoldToContact] = macroRW
 }

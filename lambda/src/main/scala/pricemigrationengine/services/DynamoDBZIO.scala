@@ -11,14 +11,14 @@ trait DynamoDBUpdateSerialiser[A] { def serialise(value: A): java.util.Map[Strin
 trait DynamoDBDeserialiser[A] { def deserialise(value: java.util.Map[String, AttributeValue]): IO[DynamoDBZIOError, A] }
 
 trait DynamoDBZIO {
-  def query[A](query: QueryRequest)(using deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A]
-  def scan[A](query: ScanRequest)(using deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A]
+  def query[A](query: QueryRequest)(using DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A]
+  def scan[A](query: ScanRequest)(using DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A]
   def update[A, B](table: String, key: A, value: B)(using
-      keySerializer: DynamoDBSerialiser[A],
-      valueSerializer: DynamoDBUpdateSerialiser[B]
+      DynamoDBSerialiser[A],
+      DynamoDBUpdateSerialiser[B]
   ): IO[DynamoDBZIOError, Unit]
   def create[A](table: String, keyName: String, value: A)(using
-      valueSerializer: DynamoDBSerialiser[A]
+      DynamoDBSerialiser[A]
   ): IO[DynamoDBZIOError, Unit]
 }
 
@@ -26,25 +26,25 @@ object DynamoDBZIO {
 
   def query[A](
       query: QueryRequest
-  )(using deserializer: DynamoDBDeserialiser[A]): URIO[DynamoDBZIO, ZStream[Any, DynamoDBZIOError, A]] = {
+  )(using DynamoDBDeserialiser[A]): URIO[DynamoDBZIO, ZStream[Any, DynamoDBZIOError, A]] = {
     ZIO.environmentWith(_.get.query(query))
   }
 
   def scan[A](
       query: ScanRequest
-  )(using deserializer: DynamoDBDeserialiser[A]): URIO[DynamoDBZIO, ZStream[Any, DynamoDBZIOError, A]] = {
+  )(using DynamoDBDeserialiser[A]): URIO[DynamoDBZIO, ZStream[Any, DynamoDBZIOError, A]] = {
     ZIO.environmentWith(_.get.scan(query))
   }
 
   def update[A, B](table: String, key: A, value: B)(using
-      keySerializer: DynamoDBSerialiser[A],
-      valueSerializer: DynamoDBUpdateSerialiser[B]
+      DynamoDBSerialiser[A],
+      DynamoDBUpdateSerialiser[B]
   ): ZIO[DynamoDBZIO, DynamoDBZIOError, Unit] = {
     ZIO.environmentWithZIO(_.get.update(table, key, value))
   }
 
   def create[A](table: String, keyName: String, value: A)(using
-      keySerializer: DynamoDBSerialiser[A]
+      DynamoDBSerialiser[A]
   ): ZIO[DynamoDBZIO, DynamoDBZIOError, Unit] = {
     ZIO.environmentWithZIO(_.get.create(table, keyName, value))
   }

@@ -46,19 +46,19 @@ case class EmailPayloadSubscriberAttributes(
 )
 
 object EmailPayloadSubscriberAttributes {
-  given rw: ReadWriter[EmailPayloadSubscriberAttributes] = macroRW
+  given ReadWriter[EmailPayloadSubscriberAttributes] = macroRW
 }
 
 case class EmailPayloadContactAttributes(SubscriberAttributes: EmailPayloadSubscriberAttributes)
 
 object EmailPayloadContactAttributes {
-  given rw: ReadWriter[EmailPayloadContactAttributes] = macroRW
+  given ReadWriter[EmailPayloadContactAttributes] = macroRW
 }
 
 case class EmailPayload(Address: Option[String], ContactAttributes: EmailPayloadContactAttributes)
 
 object EmailPayload {
-  given rw: ReadWriter[EmailPayload] = macroRW
+  given ReadWriter[EmailPayload] = macroRW
 }
 
 case class EmailMessage(
@@ -69,5 +69,5 @@ case class EmailMessage(
 )
 
 object EmailMessage {
-  given rw: ReadWriter[EmailMessage] = macroRW
+  given ReadWriter[EmailMessage] = macroRW
 }

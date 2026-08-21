@@ -1,11 +1,11 @@
 package pricemigrationengine.model
 
-import pricemigrationengine.model.OptionReader // not sure why this import is needed as should be visible implicitly
-import upickle.default._
+import pricemigrationengine.model.given
+import upickle.default.*
 
 case class ZuoraAccountBasicInfo(accountNumber: String)
 object ZuoraAccountBasicInfo {
-  given rwZuoraAccountBasicInfo: ReadWriter[ZuoraAccountBasicInfo] = macroRW
+  given ReadWriter[ZuoraAccountBasicInfo] = macroRW
 }
 
 case class ZuoraAccount(
@@ -14,5 +14,5 @@ case class ZuoraAccount(
 )
 
 object ZuoraAccount {
-  given rwZuoraAccount: ReadWriter[ZuoraAccount] = macroRW
+  given ReadWriter[ZuoraAccount] = macroRW
 }

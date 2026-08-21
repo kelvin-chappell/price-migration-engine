@@ -1,9 +1,9 @@
 package pricemigrationengine.model
 
-import java.time.LocalDate
+import pricemigrationengine.model.given
+import upickle.default.*
 
-import pricemigrationengine.model.OptionReader // not sure why this import is needed as should be visible implicitly
-import upickle.default._
+import java.time.LocalDate
 
 case class ZuoraSubscription(
     subscriptionNumber: String,
@@ -22,5 +22,5 @@ case class ZuoraSubscription(
 )
 
 object ZuoraSubscription {
-  given rwSubscription: ReadWriter[ZuoraSubscription] = macroRW
+  given ReadWriter[ZuoraSubscription] = macroRW
 }

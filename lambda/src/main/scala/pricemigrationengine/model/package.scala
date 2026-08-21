@@ -12,12 +12,12 @@ package object model {
   type Currency = String
   type ZuoraPricingData = Map[ZuoraProductRatePlanChargeId, ZuoraProductRatePlanCharge]
 
-  given rwLocalDate: ReadWriter[LocalDate] = readwriter[String].bimap[LocalDate](
+  given ReadWriter[LocalDate] = readwriter[String].bimap[LocalDate](
     date => s"${date.toString}",
     str => LocalDate.parse(str)
   )
 
-  given rwBigDecimal: ReadWriter[BigDecimal] = readwriter[Double].bimap[BigDecimal](
+  given ReadWriter[BigDecimal] = readwriter[Double].bimap[BigDecimal](
     decimal => decimal.toDouble,
     double => BigDecimal(double)
   )

@@ -13,5 +13,5 @@ case class HandlerOutput(
 )
 
 object HandlerOutput {
-  given rwSubscription: ReadWriter[HandlerOutput] = macroRW
+  given ReadWriter[HandlerOutput] = macroRW
 }

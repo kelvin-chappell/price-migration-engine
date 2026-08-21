@@ -5,7 +5,7 @@ import upickle.default.{ReadWriter, macroRW}
 case class ZuoraProductCatalogue(products: Set[ZuoraProduct], nextPage: Option[String] = None)
 
 object ZuoraProductCatalogue {
-  given rw: ReadWriter[ZuoraProductCatalogue] = macroRW
+  given ReadWriter[ZuoraProductCatalogue] = macroRW
   def empty: ZuoraProductCatalogue = ZuoraProductCatalogue(products = Set.empty)
 }
 
@@ -15,7 +15,7 @@ case class ZuoraProduct(
 )
 
 object ZuoraProduct {
-  given rw: ReadWriter[ZuoraProduct] = macroRW
+  given ReadWriter[ZuoraProduct] = macroRW
 }
 
 case class ZuoraProductRatePlan(
@@ -26,13 +26,13 @@ case class ZuoraProductRatePlan(
 )
 
 object ZuoraProductRatePlan {
-  given rw: ReadWriter[ZuoraProductRatePlan] = macroRW
+  given ReadWriter[ZuoraProductRatePlan] = macroRW
 }
 
 case class ZuoraProductRatePlanCharge(id: String, billingPeriod: Option[String], pricing: Set[ZuoraPricing])
 
 object ZuoraProductRatePlanCharge {
-  given rw: ReadWriter[ZuoraProductRatePlanCharge] = macroRW
+  given ReadWriter[ZuoraProductRatePlanCharge] = macroRW
 }
 
 /*
@@ -42,5 +42,5 @@ object ZuoraProductRatePlanCharge {
 case class ZuoraPricing(currency: Currency, price: Option[BigDecimal], hasBeenPriceCapped: Boolean = false)
 
 object ZuoraPricing {
-  given rw: ReadWriter[ZuoraPricing] = macroRW
+  given ReadWriter[ZuoraPricing] = macroRW
 }
