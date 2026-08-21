@@ -36,11 +36,10 @@ class MigrationHandlerTest extends munit.FunSuite {
 
   private def stubCohortStateMachine(startedCount: AtomicInteger): ZLayer[Any, Nothing, CohortStateMachine] =
     ZLayer.succeed(new CohortStateMachine {
-      def startExecution(spec: CohortSpec): IO[CohortStateMachineFailure, StartExecutionResponse] =
-        ZIO.succeed {
-          startedCount.incrementAndGet()
-          StartExecutionResponse.builder().build()
-        }
+      def startExecution(spec: CohortSpec): StartExecutionResponse = {
+        startedCount.incrementAndGet()
+        StartExecutionResponse.builder().build()
+      }
     })
 
   test("MigrationHandler.migrateActiveCohorts starts an execution for every active cohort") {
