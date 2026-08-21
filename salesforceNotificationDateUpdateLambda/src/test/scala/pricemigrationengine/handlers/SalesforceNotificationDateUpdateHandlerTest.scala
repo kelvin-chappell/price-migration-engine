@@ -52,27 +52,27 @@ class SalesforceNotificationDateUpdateHandlerTest extends munit.FunSuite {
 
         override def getSubscriptionByName(
             subscriptionName: String
-        ): IO[SalesforceClientFailure, SalesforceSubscription] = ???
+        ): Either[SalesforceClientFailure, SalesforceSubscription] = ???
 
         override def createPriceRise(
             priceRise: SalesforcePriceRise
-        ): IO[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] = ???
+        ): Either[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] = ???
 
         override def updatePriceRise(
             priceRiseId: String,
             priceRise: SalesforcePriceRise
-        ): IO[SalesforceClientFailure, Unit] = {
+        ): Either[SalesforceClientFailure, Unit] = {
           updatedPriceRises.addOne(priceRise)
-          ZIO.unit
+          Right(())
         }
 
         override def getContact(
             contactId: String
-        ): IO[SalesforceClientFailure, SalesforceContact] = ???
+        ): Either[SalesforceClientFailure, SalesforceContact] = ???
 
         override def getPriceRise(
             priceRiseId: String
-        ): IO[SalesforceClientFailure, SalesforcePriceRise] = ???
+        ): Either[SalesforceClientFailure, SalesforcePriceRise] = ???
       }
     )
   }

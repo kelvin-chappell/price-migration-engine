@@ -1,11 +1,73 @@
-package pricemigrationengine.service
+package pricemigrationengine.services
 
 import java.time.LocalDate
-import pricemigrationengine.model.{SalesforcePriceRise, ZuoraSubscriptionId}
-import pricemigrationengine.services.{SalesforceClientLive, SalesforcePriceRiseCreationResponse}
+import pricemigrationengine.TestLogging
+import pricemigrationengine.model.{SalesforceConfig, SalesforcePriceRise, SalesforceSubscription, ZuoraSubscriptionId}
+import sttp.client4.testing.BackendStub
 import upickle.default._
 
 class SalesforceClientLiveTest extends munit.FunSuite {
+
+  private val config = SalesforceConfig(
+    authUrl = "https://salesforce-auth-host",
+    clientId = "client-id",
+    clientSecret = "client-secret",
+    userName = "user",
+    password = "pass",
+    token = "token"
+  )
+
+  test("makeURI is pure: parses an already-escaped url string without re-escaping it") {
+    val uri = SalesforceClientLive.makeURI("https://salesforce-auth-host/services/oauth2/token")
+    assertEquals(uri.toString, "https://salesforce-auth-host/services/oauth2/token")
+  }
+
+  test("buildAuthRequest is pure: posts a password-grant request to the oauth2/token endpoint") {
+    val request = SalesforceClientLive.buildAuthRequest(config)
+    assertEquals(request.uri.toString, "https://salesforce-auth-host/services/oauth2/token")
+    assertEquals(
+      request.headers.find(_.name == "Content-Type").map(_.value),
+      Some("application/x-www-form-urlencoded")
+    )
+  }
+
+  test("instance.getSubscriptionByName authenticates once and returns the parsed subscription") {
+    var authRequests = 0
+    val backend = BackendStub.synchronous
+      .whenRequestMatches { req =>
+        val isAuthRequest = req.uri.toString.contains("oauth2/token")
+        if (isAuthRequest) authRequests += 1
+        isAuthRequest
+      }
+      .thenRespondAdjust("""{"access_token":"tok-1","instance_url":"https://salesforce-instance-host"}""")
+      .whenRequestMatches(req => req.uri.toString.contains("SF_Subscription__c/Name/Sub-001"))
+      .thenRespondAdjust(
+        """{"Id":"sub-id","Name":"Sub-001","Buyer__c":"buyer-id","Status__c":"Active","Product_Type__c":"Membership"}"""
+      )
+
+    val client = SalesforceClientLive.instance(config, TestLogging.instance, backend)
+    val subscription = client.getSubscriptionByName("Sub-001")
+
+    assertEquals(subscription.map(_.Name), Right("Sub-001"))
+    assertEquals(authRequests, 1)
+  }
+
+  test("instance.getSubscriptionByName returns a Left with contextual info when the request fails") {
+    val backend = BackendStub.synchronous
+      .whenRequestMatches(req => req.uri.toString.contains("oauth2/token"))
+      .thenRespondAdjust("""{"access_token":"tok-1","instance_url":"https://salesforce-instance-host"}""")
+      .whenRequestMatches(req => req.uri.toString.contains("SF_Subscription__c/Name/Sub-001"))
+      .thenRespondServerError()
+
+    val client = SalesforceClientLive.instance(config, TestLogging.instance, backend)
+    val result = client.getSubscriptionByName("Sub-001")
+
+    result match {
+      case Left(failure) => assert(failure.reason.contains("4d8d6c12"))
+      case Right(_)      => fail("expected a Left")
+    }
+  }
+
   test("SalesforceClientLive should serialise SalesforcePriceRise with all fields") {
     assertEquals(
       SalesforceClientLive.serialisePriceRise(

@@ -57,16 +57,18 @@ class SalesforcePriceRiseCreationHandlerTest extends munit.FunSuite {
 
   private def stubSalesforceClient(created: ArrayBuffer[SalesforcePriceRise]): ZLayer[Any, Nothing, SalesforceClient] =
     ZLayer.succeed(new SalesforceClient {
-      def getSubscriptionByName(subscriptionName: String): IO[SalesforceClientFailure, SalesforceSubscription] =
-        ZIO.succeed(subscription)
-      def getContact(contactId: String): IO[SalesforceClientFailure, SalesforceContact] = ???
+      def getSubscriptionByName(subscriptionName: String): Either[SalesforceClientFailure, SalesforceSubscription] =
+        Right(subscription)
+      def getContact(contactId: String): Either[SalesforceClientFailure, SalesforceContact] = ???
       def createPriceRise(
           priceRise: SalesforcePriceRise
-      ): IO[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] =
-        ZIO.succeed(created.addOne(priceRise)).as(SalesforcePriceRiseCreationResponse("new-price-rise-id"))
-      def updatePriceRise(priceRiseId: String, priceRise: SalesforcePriceRise): IO[SalesforceClientFailure, Unit] =
+      ): Either[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] = {
+        created.addOne(priceRise)
+        Right(SalesforcePriceRiseCreationResponse("new-price-rise-id"))
+      }
+      def updatePriceRise(priceRiseId: String, priceRise: SalesforcePriceRise): Either[SalesforceClientFailure, Unit] =
         ???
-      def getPriceRise(priceRiseId: String): IO[SalesforceClientFailure, SalesforcePriceRise] = ???
+      def getPriceRise(priceRiseId: String): Either[SalesforceClientFailure, SalesforcePriceRise] = ???
     })
 
   test("SalesforcePriceRiseCreationHandler.main creates a Salesforce price rise for every estimated cohort item") {

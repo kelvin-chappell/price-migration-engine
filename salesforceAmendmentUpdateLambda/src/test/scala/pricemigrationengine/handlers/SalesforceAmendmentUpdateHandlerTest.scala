@@ -49,15 +49,21 @@ class SalesforceAmendmentUpdateHandlerTest extends munit.FunSuite {
 
   private def stubSalesforceClient(updated: ArrayBuffer[SalesforcePriceRise]): ZLayer[Any, Nothing, SalesforceClient] =
     ZLayer.succeed(new SalesforceClient {
-      def getSubscriptionByName(subscriptionName: String): IO[SalesforceClientFailure, SalesforceSubscription] = ???
-      def getContact(contactId: String): IO[SalesforceClientFailure, SalesforceContact] = ???
+      def getSubscriptionByName(subscriptionName: String): Either[SalesforceClientFailure, SalesforceSubscription] =
+        ???
+      def getContact(contactId: String): Either[SalesforceClientFailure, SalesforceContact] = ???
       def createPriceRise(
           priceRise: SalesforcePriceRise
-      ): IO[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] = ???
-      def updatePriceRise(priceRiseId: String, priceRise: SalesforcePriceRise): IO[SalesforceClientFailure, Unit] =
-        ZIO.succeed(updated.addOne(priceRise)).unit
-      def getPriceRise(priceRiseId: String): IO[SalesforceClientFailure, SalesforcePriceRise] =
-        ZIO.succeed(
+      ): Either[SalesforceClientFailure, SalesforcePriceRiseCreationResponse] = ???
+      def updatePriceRise(
+          priceRiseId: String,
+          priceRise: SalesforcePriceRise
+      ): Either[SalesforceClientFailure, Unit] = {
+        updated.addOne(priceRise)
+        Right(())
+      }
+      def getPriceRise(priceRiseId: String): Either[SalesforceClientFailure, SalesforcePriceRise] =
+        Right(
           SalesforcePriceRise(
             Migration_Name__c = None,
             Migration_Status__c = None,
