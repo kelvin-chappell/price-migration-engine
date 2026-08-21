@@ -98,13 +98,11 @@ lazy val core = (project in file("core"))
       http_sttp_client4_zio,
       commonsCsv,
       slf4jNop % Runtime,
-      munit % Test,
-      zioTest % Test,
-      zioTestSbt % Test,
-      zioMock % Test
+      munit % Test
+      // zio-test and zio-mock were dropped: no test in the codebase used zio.test's ZIOSpecDefault/assertZIO,
+      // and the one zio-mock usage (MockCohortTable) was dead code. See docs/direct-style-migration.md.
     ),
     testFrameworks += new TestFramework("munit.Framework"),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     description := "Shared model/services/migrations code for the Price Migration Engine lambdas",
     buildInfo,
     commonAssemblyMergeStrategy,
