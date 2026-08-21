@@ -1,15 +1,26 @@
 package pricemigrationengine.services
 
-import pricemigrationengine.model.EmailSenderFailure
 import pricemigrationengine.model.membershipworkflow.EmailMessage
+import pricemigrationengine.model.EmailSenderFailure
 import zio.ZIO
 
 trait EmailSender {
-  def sendEmail(message: EmailMessage): ZIO[Any, EmailSenderFailure, Unit]
+
+  /** Throws on failure. */
+  def sendEmail(message: EmailMessage): Unit
 }
 
 object EmailSender {
-  def sendEmail(message: EmailMessage): ZIO[EmailSender, EmailSenderFailure, Unit] = {
-    ZIO.environmentWithZIO(_.get.sendEmail(message))
-  }
+
+  /** ZIO-facing compatibility shim for not-yet-converted callers. */
+  def sendEmail(message: EmailMessage): ZIO[EmailSender, EmailSenderFailure, Unit] =
+    ZIO.serviceWithZIO(service =>
+      ZIO
+        .attempt(service.sendEmail(message))
+        .mapError(ex =>
+          EmailSenderFailure(
+            s"Failed to send sqs email message for sfContactId ${message.SfContactId}: ${ex.getMessage}"
+          )
+        )
+    )
 }
