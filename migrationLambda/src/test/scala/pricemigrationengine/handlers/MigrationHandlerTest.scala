@@ -30,8 +30,8 @@ class MigrationHandlerTest extends munit.FunSuite {
 
   private def stubCohortSpecTable(specs: Set[CohortSpec]): ZLayer[Any, Nothing, CohortSpecTable] =
     ZLayer.succeed(new CohortSpecTable {
-      val fetchAll: IO[Failure, Set[CohortSpec]] = ZIO.succeed(specs)
-      def update(spec: CohortSpec): ZIO[Any, CohortSpecUpdateFailure, Unit] = ZIO.unit
+      def fetchAll(): Either[Failure, Set[CohortSpec]] = Right(specs)
+      def update(spec: CohortSpec): Either[CohortSpecUpdateFailure, Unit] = Right(())
     })
 
   private def stubCohortStateMachine(startedCount: AtomicInteger): ZLayer[Any, Nothing, CohortStateMachine] =

@@ -1,20 +1,21 @@
 package pricemigrationengine.services
 
 import pricemigrationengine.model.{CohortSpec, CohortSpecUpdateFailure, Failure}
-import zio.{IO, ZIO}
+import zio.ZIO
 
 /** For accessing the specifications of each cohort.
   */
 trait CohortSpecTable {
-  val fetchAll: IO[Failure, Set[CohortSpec]]
-  def update(spec: CohortSpec): ZIO[Any, CohortSpecUpdateFailure, Unit]
+  def fetchAll(): Either[Failure, Set[CohortSpec]]
+  def update(spec: CohortSpec): Either[CohortSpecUpdateFailure, Unit]
 }
 
 object CohortSpecTable {
 
+  /** ZIO-facing compatibility shim for not-yet-converted callers. */
   val fetchAll: ZIO[CohortSpecTable, Failure, Set[CohortSpec]] =
-    ZIO.environmentWithZIO(_.get.fetchAll)
+    ZIO.environmentWithZIO(env => ZIO.fromEither(env.get.fetchAll()))
 
   def update(spec: CohortSpec): ZIO[CohortSpecTable, CohortSpecUpdateFailure, Unit] =
-    ZIO.environmentWithZIO(_.get.update(spec))
+    ZIO.environmentWithZIO(env => ZIO.fromEither(env.get.update(spec)))
 }
