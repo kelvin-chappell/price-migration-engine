@@ -9,5 +9,5 @@ case class ZuoraRenewOrderResponse(
     // See comments on this PR: https://github.com/guardian/price-migration-engine/pull/1085
 )
 object ZuoraRenewOrderResponse {
-  implicit val rwZuoraRenewOrderResponse: ReadWriter[ZuoraRenewOrderResponse] = macroRW
+  given ReadWriter[ZuoraRenewOrderResponse] = macroRW
 }

@@ -1,13 +1,13 @@
 package pricemigrationengine.model
 
-import java.time.LocalDate
-
 import upickle.default.{ReadWriter, macroRW}
+
+import java.time.LocalDate
 
 case class ZuoraInvoiceList(invoiceItems: Seq[ZuoraInvoiceItem])
 
 object ZuoraInvoiceList {
-  implicit val rw: ReadWriter[ZuoraInvoiceList] = macroRW
+  given ReadWriter[ZuoraInvoiceList] = macroRW
 }
 
 /*
@@ -24,7 +24,7 @@ case class ZuoraInvoiceItem(
 )
 
 object ZuoraInvoiceItem {
-  implicit val rw: ReadWriter[ZuoraInvoiceItem] = macroRW
+  given ReadWriter[ZuoraInvoiceItem] = macroRW
 
   def itemsForSubscription(
       invoiceList: ZuoraInvoiceList,

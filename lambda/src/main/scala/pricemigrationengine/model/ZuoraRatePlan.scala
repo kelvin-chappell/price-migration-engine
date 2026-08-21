@@ -1,7 +1,7 @@
 package pricemigrationengine.model
 
 import pricemigrationengine.model.OptionReader
-import upickle.default._
+import upickle.default.*
 
 import java.time.LocalDate
 
@@ -15,7 +15,7 @@ case class ZuoraRatePlan(
 )
 
 object ZuoraRatePlan {
-  implicit val rw: ReadWriter[ZuoraRatePlan] = macroRW
+  given ReadWriter[ZuoraRatePlan] = macroRW
 
   def ratePlanToCurrency(ratePlan: ZuoraRatePlan): Option[String] = {
     ratePlan.ratePlanCharges.headOption.map(_.currency)

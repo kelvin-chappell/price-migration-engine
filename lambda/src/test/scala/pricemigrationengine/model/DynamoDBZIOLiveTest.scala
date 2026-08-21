@@ -1,23 +1,23 @@
 package pricemigrationengine.model
 
 import pricemigrationengine.TestLogging
-import pricemigrationengine.services._
 import pricemigrationengine.model.Runner.unsafeRunSync
+import pricemigrationengine.services.*
+import software.amazon.awssdk.services.dynamodb.model.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeAction.PUT
-import software.amazon.awssdk.services.dynamodb.model._
 import zio.Exit.Success
 import zio.Runtime.default
 import zio.stream.ZSink
 import zio.{Chunk, Task, ZIO, ZLayer}
 
 import java.util
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class DynamoDBZIOLiveTest extends munit.FunSuite {
   test("DynamoDBZIOLive should get all batches of query results and convert the batches to a stream") {
     def item(id: String) = Map("id" -> AttributeValue.builder.s(id).build()).asJava
 
-    implicit val itemDeserialiser = new DynamoDBDeserialiser[String] {
+    given DynamoDBDeserialiser[String] = new DynamoDBDeserialiser[String] {
       def deserialise(value: java.util.Map[String, AttributeValue]) =
         ZIO.fromOption(value.asScala.get("id").map(_.s)).orElseFail(DynamoDBZIOError(""))
     }
@@ -62,12 +62,12 @@ class DynamoDBZIOLiveTest extends munit.FunSuite {
   }
 
   test("DynamoDBZIOLive serialize key and values and update in dynamodb") {
-    implicit val keySerialiser = new DynamoDBSerialiser[String] {
+    given DynamoDBSerialiser[String] = new DynamoDBSerialiser[String] {
       override def serialise(key: String): util.Map[String, AttributeValue] =
         Map("key" -> AttributeValue.builder.s(key).build()).asJava
     }
 
-    implicit val updateSerialiser = new DynamoDBUpdateSerialiser[String] {
+    given DynamoDBUpdateSerialiser[String] = new DynamoDBUpdateSerialiser[String] {
       override def serialise(value: String): util.Map[String, AttributeValueUpdate] =
         Map(
           "value" -> AttributeValueUpdate.builder

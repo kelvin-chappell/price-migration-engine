@@ -4,10 +4,11 @@ import sbt.Keys.{description, name}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / scalaVersion := "3.3.6"
 
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
+  "-no-indent",
   "-Xfatal-warnings"
 )
 

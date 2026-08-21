@@ -1,6 +1,6 @@
 package pricemigrationengine.services
 
-import pricemigrationengine.model._
+import pricemigrationengine.model.*
 import software.amazon.awssdk.services.sfn.model.{StartExecutionRequest, StartExecutionResponse}
 import upickle.default.{ReadWriter, macroRW, write}
 import zio.{Clock, IO, ZIO, ZLayer}
@@ -12,7 +12,7 @@ object CohortStateMachineLive {
 
   private case class StateMachineInput(cohortSpec: CohortSpec)
 
-  private implicit val rw: ReadWriter[StateMachineInput] = macroRW
+  private given ReadWriter[StateMachineInput] = macroRW
 
   val impl: ZLayer[CohortStateMachineConfig with Logging, ConfigFailure, CohortStateMachine] =
     ZLayer.fromZIO {

@@ -17,7 +17,7 @@ object DynamoDBZIOLive {
 
         override def query[A](
             query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] =
+        )(using deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] =
           recursivelyExecuteQueryUntilAllResultsAreStreamed(query)
             .mapZIO(deserializer.deserialise)
 
@@ -52,7 +52,7 @@ object DynamoDBZIOLive {
           } yield results
         }
 
-        override def scan[A](query: ScanRequest)(implicit
+        override def scan[A](query: ScanRequest)(using
             deserializer: DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = {
           recursivelyExecuteScanUntilAllResultsAreStreamed(query)
@@ -90,7 +90,7 @@ object DynamoDBZIOLive {
           } yield results
         }
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
+        override def update[A, B](table: String, key: A, value: B)(using
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] =
@@ -107,7 +107,7 @@ object DynamoDBZIOLive {
               _ => ()
             )
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
+        override def create[A](table: String, keyName: String, value: A)(using
             valueSerializer: DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] =
           dynamoDbClient

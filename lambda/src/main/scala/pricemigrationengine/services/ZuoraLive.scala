@@ -1,15 +1,15 @@
 package pricemigrationengine.services
 
-import pricemigrationengine.model._
-import upickle.default.{ReadWriter, Reader, macroRW, read, write}
-import zio.Schedule.{exponential, recurs}
-import zio._
-
-import java.time.LocalDate
-import ujson._
-import sttp.client4._
+import pricemigrationengine.model.{*, given}
+import sttp.client4.*
 import sttp.client4.httpclient.zio.HttpClientZioBackend
 import sttp.model.Uri
+import ujson.*
+import upickle.default.{ReadWriter, Reader, macroRW, read, write}
+import zio.*
+import zio.Schedule.{exponential, recurs}
+
+import java.time.LocalDate
 
 object ZuoraLive {
 
@@ -23,7 +23,7 @@ object ZuoraLive {
     )
 
   private case class AccessToken(access_token: String)
-  private implicit val rwAccessToken: ReadWriter[AccessToken] = macroRW
+  private given ReadWriter[AccessToken] = macroRW
 
   private case class InvoicePreviewRequest(
       accountId: String,
@@ -31,7 +31,7 @@ object ZuoraLive {
       assumeRenewal: String,
       chargeTypeToExclude: String
   )
-  private implicit val rwInvoicePreviewRequest: ReadWriter[InvoicePreviewRequest] = macroRW
+  private given ReadWriter[InvoicePreviewRequest] = macroRW
 
   private def performRequestSttpClient4(
       request: Request[String]
@@ -108,7 +108,7 @@ object ZuoraLive {
 
   private def performRequestAndParseAnswer[A](
       request: Request[String]
-  )(implicit reader: Reader[A]): ZIO[Any, ZuoraFetchFailure, A] = {
+  )(using Reader[A]): ZIO[Any, ZuoraFetchFailure, A] = {
     for {
       successfulResponse <- performRequestSttpClient4(request)
       body = successfulResponse.body

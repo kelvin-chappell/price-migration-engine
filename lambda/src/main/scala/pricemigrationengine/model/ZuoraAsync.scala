@@ -1,6 +1,6 @@
 package pricemigrationengine.model
 
-import upickle.default._
+import upickle.default.*
 
 // This module was added in August 2025 to solve a problem
 // with renew orders and amendments orders, which became prevalent as we
@@ -155,17 +155,17 @@ We need to check result.status as well. And we should fail our own processing if
 
 case class AsyncJobSubmissionTicket(jobId: String, success: Boolean)
 object AsyncJobSubmissionTicket {
-  implicit val reader: Reader[AsyncJobSubmissionTicket] = macroR
+  given Reader[AsyncJobSubmissionTicket] = macroR
 }
 
 case class AsyncJobReportResult(status: String)
 object AsyncJobReportResult {
-  implicit val reader: Reader[AsyncJobReportResult] = macroR
+  given Reader[AsyncJobReportResult] = macroR
 }
 
 case class AsyncJobReport(status: String, errors: Option[String], result: AsyncJobReportResult)
 object AsyncJobReport {
-  implicit val reader: Reader[AsyncJobReport] = macroR
+  given Reader[AsyncJobReport] = macroR
   def isCompleted(report: AsyncJobReport): Boolean = report.status == "Completed"
   def isCompletedCompleted(report: AsyncJobReport): Boolean = {
     // Funny name for a function, but it does a perfect job expressing the state.

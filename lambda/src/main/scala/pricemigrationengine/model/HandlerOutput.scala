@@ -13,5 +13,5 @@ case class HandlerOutput(
 )
 
 object HandlerOutput {
-  implicit val rwSubscription: ReadWriter[HandlerOutput] = macroRW
+  given ReadWriter[HandlerOutput] = macroRW
 }

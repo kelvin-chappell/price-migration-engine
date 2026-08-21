@@ -1,12 +1,11 @@
 package pricemigrationengine.services
 
-import pricemigrationengine.model._
-import zio.{Layer, ZIO, ZLayer}
-import zio._
+import pricemigrationengine.model.*
 import software.amazon.awssdk.regions
-import software.amazon.awssdk.services.secretsmanager._
+import software.amazon.awssdk.services.secretsmanager.*
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest
-import upickle.default._
+import upickle.default.*
+import zio.{Layer, ZIO, ZLayer, *}
 
 case class EngineSecrets(
     zuoraApiHost: String,
@@ -22,7 +21,7 @@ case class EngineSecrets(
 
 object EngineSecrets {
 
-  implicit val reader: Reader[EngineSecrets] = macroRW
+  given Reader[EngineSecrets] = macroRW
 
   private lazy val region: regions.Region = regions.Region.EU_WEST_1
 

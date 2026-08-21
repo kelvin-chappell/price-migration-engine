@@ -1,9 +1,9 @@
 package pricemigrationengine.model
 
 import pricemigrationengine.model.CohortTableFilter.ReadyForEstimation
-import pricemigrationengine.services._
+import pricemigrationengine.services.*
+import software.amazon.awssdk.services.dynamodb.model.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeAction.PUT
-import software.amazon.awssdk.services.dynamodb.model._
 import zio.Exit.Success
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, IO, Runtime, ZIO, ZLayer}
@@ -11,7 +11,7 @@ import zio.{Chunk, IO, Runtime, ZIO, ZLayer}
 import java.time.ZoneOffset.UTC
 import java.time.format.DateTimeFormatter.ISO_DATE_TIME
 import java.time.{Instant, LocalDate}
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Random
 
 class CohortTableLiveTest extends munit.FunSuite {
@@ -52,23 +52,23 @@ class CohortTableLiveTest extends munit.FunSuite {
 
         override def query[A](
             query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
+        )(using deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
           receivedDeserialiser = Some(deserializer.asInstanceOf[DynamoDBDeserialiser[CohortItem]])
           receivedRequest = Some(query)
           ZStream(item1, item2).mapZIO(item => ZIO.attempt(item.asInstanceOf[A]).orElseFail(DynamoDBZIOError("")))
         }
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
+        override def update[A, B](table: String, key: A, value: B)(using
+            DynamoDBSerialiser[A],
+            DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
+        override def create[A](table: String, keyName: String, value: A)(using
+            DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
+        override def scan[A](query: ScanRequest)(using
+            DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
       }
     )
@@ -151,21 +151,21 @@ class CohortTableLiveTest extends munit.FunSuite {
 
         override def query[A](
             query: QueryRequest
-        )(implicit deserializer: DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
+        )(using DynamoDBDeserialiser[A]): ZStream[Any, DynamoDBZIOError, A] = {
           receivedRequest = Some(query)
           ZStream(item1).mapZIO(item => ZIO.attempt(item.asInstanceOf[A]).orElseFail(DynamoDBZIOError("")))
         }
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
+        override def update[A, B](table: String, key: A, value: B)(using
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
+        override def create[A](table: String, keyName: String, value: A)(using
             valueSerializer: DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def scan[A](query: ScanRequest)(implicit
+        override def scan[A](query: ScanRequest)(using
             deserializer: DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
       }
@@ -213,11 +213,11 @@ class CohortTableLiveTest extends munit.FunSuite {
     val stubDynamoDBZIO = ZLayer.succeed(
       new DynamoDBZIO {
 
-        override def query[A](query: QueryRequest)(implicit
+        override def query[A](query: QueryRequest)(using
             deserializer: DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
+        override def update[A, B](table: String, key: A, value: B)(using
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] = {
@@ -229,11 +229,11 @@ class CohortTableLiveTest extends munit.FunSuite {
           ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
         }
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
+        override def create[A](table: String, keyName: String, value: A)(using
             valueSerializer: DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def scan[A](query: ScanRequest)(implicit
+        override def scan[A](query: ScanRequest)(using
             deserializer: DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
       }
@@ -401,11 +401,11 @@ class CohortTableLiveTest extends munit.FunSuite {
     val stubDynamoDBZIO = ZLayer.succeed(
       new DynamoDBZIO {
 
-        override def query[A](query: QueryRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
+        override def query[A](query: QueryRequest)(using
+            DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
+        override def update[A, B](table: String, key: A, value: B)(using
             keySerializer: DynamoDBSerialiser[A],
             valueSerializer: DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] = {
@@ -414,12 +414,12 @@ class CohortTableLiveTest extends munit.FunSuite {
           ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
         }
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
-            valueSerializer: DynamoDBSerialiser[A]
+        override def create[A](table: String, keyName: String, value: A)(using
+            DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
+        override def scan[A](query: ScanRequest)(using
+            DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
       }
     )
@@ -476,16 +476,16 @@ class CohortTableLiveTest extends munit.FunSuite {
     val stubDynamoDBZIO = ZLayer.succeed(
       new DynamoDBZIO {
 
-        override def query[A](query: QueryRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
+        override def query[A](query: QueryRequest)(using
+            DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
 
-        override def update[A, B](table: String, key: A, value: B)(implicit
-            keySerializer: DynamoDBSerialiser[A],
-            valueSerializer: DynamoDBUpdateSerialiser[B]
+        override def update[A, B](table: String, key: A, value: B)(using
+            DynamoDBSerialiser[A],
+            DynamoDBUpdateSerialiser[B]
         ): IO[DynamoDBZIOError, Unit] = ???
 
-        override def create[A](table: String, keyName: String, value: A)(implicit
+        override def create[A](table: String, keyName: String, value: A)(using
             valueSerializer: DynamoDBSerialiser[A]
         ): IO[DynamoDBZIOError, Unit] = {
           tableUpdated = Some(table)
@@ -494,8 +494,8 @@ class CohortTableLiveTest extends munit.FunSuite {
           ZIO.attempt(()).orElseFail(DynamoDBZIOError(""))
         }
 
-        override def scan[A](query: ScanRequest)(implicit
-            deserializer: DynamoDBDeserialiser[A]
+        override def scan[A](query: ScanRequest)(using
+            DynamoDBDeserialiser[A]
         ): ZStream[Any, DynamoDBZIOError, A] = ???
       }
     )

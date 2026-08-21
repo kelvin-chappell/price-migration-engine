@@ -19,7 +19,7 @@ object Newspaper2025P1SixdayPlus extends Newspaper2025P1PlusType
 
 case class Newspaper2025P1ExtraAttributes(brandTitle: String, removeDiscount: Option[Boolean] = None)
 object Newspaper2025P1ExtraAttributes {
-  implicit val reader: Reader[Newspaper2025P1ExtraAttributes] = macroR
+  given Reader[Newspaper2025P1ExtraAttributes] = macroR
 
   // Each item of the migration is going to have a migration extended attributes object
   // with a brandTitle key and possibly a removeDiscount key.

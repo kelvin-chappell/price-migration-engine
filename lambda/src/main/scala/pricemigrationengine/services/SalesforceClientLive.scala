@@ -1,39 +1,31 @@
 package pricemigrationengine.services
 
-import java.time.LocalDate
-import pricemigrationengine.model.{
-  SalesforceAddress,
-  SalesforceClientFailure,
-  SalesforceConfig,
-  SalesforceContact,
-  SalesforcePriceRise,
-  SalesforceSubscription
-}
-
-import upickle.default._
-import zio.{IO, ZIO, ZLayer}
+import pricemigrationengine.model.*
 import pricemigrationengine.services
-import sttp.client4._
+import sttp.client4.*
 import sttp.client4.httpclient.zio.HttpClientZioBackend
 import sttp.model.Uri
+import upickle.default.*
+import zio.{IO, ZIO, ZLayer}
 
-import scala.concurrent.duration._
+import java.time.LocalDate
+import scala.concurrent.duration.*
 
 object SalesforceClientLive {
 
   private case class SalesforceAuthDetails(access_token: String, instance_url: String)
 
-  implicit private val localDateRW: ReadWriter[LocalDate] =
+  private given ReadWriter[LocalDate] =
     readwriter[String].bimap[LocalDate](_.toString, LocalDate.parse)
-  implicit private val salesforceAuthDetailsRW: ReadWriter[SalesforceAuthDetails] = macroRW
-  implicit private val salesforceSubscriptionRW: ReadWriter[SalesforceSubscription] = macroRW
-  implicit private val salesforcePriceRiseRW: ReadWriter[SalesforcePriceRise] = macroRW
-  implicit private val salesforcePriceIdRiseRW: ReadWriter[SalesforcePriceRiseCreationResponse] = macroRW
-  implicit private val salesforceAddressRW: ReadWriter[SalesforceAddress] = macroRW
-  implicit private val salesforceContactRW: ReadWriter[SalesforceContact] = macroRW
+  private given ReadWriter[SalesforceAuthDetails] = macroRW
+  private given ReadWriter[SalesforceSubscription] = macroRW
+  private given ReadWriter[SalesforcePriceRise] = macroRW
+  private given ReadWriter[SalesforcePriceRiseCreationResponse] = macroRW
+  private given ReadWriter[SalesforceAddress] = macroRW
+  private given ReadWriter[SalesforceContact] = macroRW
 
   // Do not remove this:
-  implicit private val bigDecimalRW: ReadWriter[BigDecimal] =
+  private given ReadWriter[BigDecimal] =
     readwriter[ujson.Value].bimap[BigDecimal](
       bd => ujson.Num(bd.toDouble), // write
       js => js.num // read as number
@@ -85,7 +77,7 @@ object SalesforceClientLive {
 
   private def performRequestAndParseAnswer[A](
       request: Request[String]
-  )(implicit reader: Reader[A]): ZIO[Any, SalesforceClientFailure, A] = {
+  )(using Reader[A]): ZIO[Any, SalesforceClientFailure, A] = {
     for {
       successfulResponse <- performRequestSttpClient4(request)
       body = successfulResponse.body

@@ -1,12 +1,11 @@
 package pricemigrationengine.migrations
-import pricemigrationengine.model.ZuoraRatePlan
-import pricemigrationengine.model._
+import pricemigrationengine.model.{*, given}
 import pricemigrationengine.services.Zuora
+import ujson.*
+import upickle.default.*
+import zio.ZIO
 
 import java.time.LocalDate
-import ujson._
-import upickle.default._
-import zio.ZIO
 
 sealed trait Newspaper2025P3DeliveryPattern
 object Newspaper2025P3Everyday extends Newspaper2025P3DeliveryPattern
@@ -20,7 +19,7 @@ case class Newspaper2025P3ExtraAttributes(
     earliestMigrationDate: Option[LocalDate] = None
 )
 object Newspaper2025P3ExtraAttributes {
-  implicit val reader: Reader[Newspaper2025P3ExtraAttributes] = macroR
+  given Reader[Newspaper2025P3ExtraAttributes] = macroR
 
   // Each item of the migration is going to have a migration extended attributes object
   // with a brandTitle key and possibly a removeDiscount key.
