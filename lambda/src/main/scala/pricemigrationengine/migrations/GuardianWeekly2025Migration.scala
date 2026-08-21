@@ -13,7 +13,7 @@ case class GuardianWeekly2025ExtraAttributes(
 )
 object GuardianWeekly2025ExtraAttributes {
 
-  implicit val localDateReader: Reader[LocalDate] =
+  given localDateReader: Reader[LocalDate] =
     readwriter[String].bimap[LocalDate](
       // write (not used here)
       date => date.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -21,7 +21,7 @@ object GuardianWeekly2025ExtraAttributes {
       str => LocalDate.parse(str, DateTimeFormatter.ISO_LOCAL_DATE)
     )
 
-  implicit val reader: Reader[GuardianWeekly2025ExtraAttributes] = macroR
+  given reader: Reader[GuardianWeekly2025ExtraAttributes] = macroR
 
   // usage
   // val s = """{ "earliestMigrationDate": "2025-10-06" }"""

@@ -46,19 +46,19 @@ case class EmailPayloadSubscriberAttributes(
 )
 
 object EmailPayloadSubscriberAttributes {
-  implicit val rw: ReadWriter[EmailPayloadSubscriberAttributes] = macroRW
+  given rw: ReadWriter[EmailPayloadSubscriberAttributes] = macroRW
 }
 
 case class EmailPayloadContactAttributes(SubscriberAttributes: EmailPayloadSubscriberAttributes)
 
 object EmailPayloadContactAttributes {
-  implicit val rw: ReadWriter[EmailPayloadContactAttributes] = macroRW
+  given rw: ReadWriter[EmailPayloadContactAttributes] = macroRW
 }
 
 case class EmailPayload(Address: Option[String], ContactAttributes: EmailPayloadContactAttributes)
 
 object EmailPayload {
-  implicit val rw: ReadWriter[EmailPayload] = macroRW
+  given rw: ReadWriter[EmailPayload] = macroRW
 }
 
 case class EmailMessage(
@@ -69,5 +69,5 @@ case class EmailMessage(
 )
 
 object EmailMessage {
-  implicit val rw: ReadWriter[EmailMessage] = macroRW
+  given rw: ReadWriter[EmailMessage] = macroRW
 }

@@ -1,5 +1,6 @@
 package pricemigrationengine.migrations
 import pricemigrationengine.model.ZuoraRatePlan
+import pricemigrationengine.model.{OptionReader, rwLocalDate}
 import pricemigrationengine.model._
 import pricemigrationengine.services.Zuora
 
@@ -20,7 +21,7 @@ case class Newspaper2025P3ExtraAttributes(
     earliestMigrationDate: Option[LocalDate] = None
 )
 object Newspaper2025P3ExtraAttributes {
-  implicit val reader: Reader[Newspaper2025P3ExtraAttributes] = macroR
+  given reader: Reader[Newspaper2025P3ExtraAttributes] = macroR
 
   // Each item of the migration is going to have a migration extended attributes object
   // with a brandTitle key and possibly a removeDiscount key.

@@ -16,7 +16,7 @@ object CohortTableLive {
   private val ProcessingStageIndexName = "ProcessingStageIndexV2"
   private val ProcessingStageAndDateIndexName = "ProcessingStageAndDateIndexV1"
 
-  private implicit val cohortItemDeserialiser: DynamoDBDeserialiser[CohortItem] = { cohortItem =>
+  private given cohortItemDeserialiser: DynamoDBDeserialiser[CohortItem] = { cohortItem =>
     ZIO
       .fromEither(
         for {
@@ -78,7 +78,7 @@ object CohortTableLive {
       .mapError(e => DynamoDBZIOError(e))
   }
 
-  private implicit val cohortItemUpdateSerialiser: DynamoDBUpdateSerialiser[CohortItem] =
+  private given cohortItemUpdateSerialiser: DynamoDBUpdateSerialiser[CohortItem] =
     cohortItem =>
       List(
         Option(stringFieldUpdate("processingStage", cohortItem.processingStage.value)),
@@ -127,10 +127,10 @@ object CohortTableLive {
         cohortItem.ex_membership2025_country.map(value => stringFieldUpdate("ex_membership2025_country", value))
       ).flatten.toMap.asJava
 
-  private implicit val cohortTableKeySerialiser: DynamoDBSerialiser[CohortTableKey] =
+  private given cohortTableKeySerialiser: DynamoDBSerialiser[CohortTableKey] =
     key => Map(stringUpdate(keyAttribName, key.subscriptionNumber)).asJava
 
-  private implicit val cohortTableSerialiser: DynamoDBSerialiser[CohortItem] =
+  private given cohortTableSerialiser: DynamoDBSerialiser[CohortItem] =
     cohortItem =>
       Map(
         stringUpdate(keyAttribName, cohortItem.subscriptionName),

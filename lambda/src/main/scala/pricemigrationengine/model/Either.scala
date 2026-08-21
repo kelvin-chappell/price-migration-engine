@@ -6,7 +6,7 @@ object Either {
     * value, or else to a Right that contains the Seq of all the Right values in the original Seq.
     */
   // to keep the lambda package small we are not importing cats
-  implicit final class TraverseOps[E, A](eithers: Seq[Either[E, A]]) {
+  extension [E, A](eithers: Seq[Either[E, A]]) {
     def sequence: Either[E, Seq[A]] =
       eithers
         .collectFirst { case Left(e) => e }

@@ -23,17 +23,17 @@ object SalesforceClientLive {
 
   private case class SalesforceAuthDetails(access_token: String, instance_url: String)
 
-  implicit private val localDateRW: ReadWriter[LocalDate] =
+  private given localDateRW: ReadWriter[LocalDate] =
     readwriter[String].bimap[LocalDate](_.toString, LocalDate.parse)
-  implicit private val salesforceAuthDetailsRW: ReadWriter[SalesforceAuthDetails] = macroRW
-  implicit private val salesforceSubscriptionRW: ReadWriter[SalesforceSubscription] = macroRW
-  implicit private val salesforcePriceRiseRW: ReadWriter[SalesforcePriceRise] = macroRW
-  implicit private val salesforcePriceIdRiseRW: ReadWriter[SalesforcePriceRiseCreationResponse] = macroRW
-  implicit private val salesforceAddressRW: ReadWriter[SalesforceAddress] = macroRW
-  implicit private val salesforceContactRW: ReadWriter[SalesforceContact] = macroRW
+  private given salesforceAuthDetailsRW: ReadWriter[SalesforceAuthDetails] = macroRW
+  private given salesforceSubscriptionRW: ReadWriter[SalesforceSubscription] = macroRW
+  private given salesforcePriceRiseRW: ReadWriter[SalesforcePriceRise] = macroRW
+  private given salesforcePriceIdRiseRW: ReadWriter[SalesforcePriceRiseCreationResponse] = macroRW
+  private given salesforceAddressRW: ReadWriter[SalesforceAddress] = macroRW
+  private given salesforceContactRW: ReadWriter[SalesforceContact] = macroRW
 
   // Do not remove this:
-  implicit private val bigDecimalRW: ReadWriter[BigDecimal] =
+  private given bigDecimalRW: ReadWriter[BigDecimal] =
     readwriter[ujson.Value].bimap[BigDecimal](
       bd => ujson.Num(bd.toDouble), // write
       js => js.num // read as number
@@ -85,7 +85,7 @@ object SalesforceClientLive {
 
   private def performRequestAndParseAnswer[A](
       request: Request[String]
-  )(implicit reader: Reader[A]): ZIO[Any, SalesforceClientFailure, A] = {
+  )(using reader: Reader[A]): ZIO[Any, SalesforceClientFailure, A] = {
     for {
       successfulResponse <- performRequestSttpClient4(request)
       body = successfulResponse.body

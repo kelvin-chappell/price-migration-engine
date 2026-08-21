@@ -1,6 +1,6 @@
 package pricemigrationengine.services
 
-import pricemigrationengine.model._
+import pricemigrationengine.model.{rwLocalDate, _}
 import upickle.default.{ReadWriter, Reader, macroRW, read, write}
 import zio.Schedule.{exponential, recurs}
 import zio._
@@ -23,7 +23,7 @@ object ZuoraLive {
     )
 
   private case class AccessToken(access_token: String)
-  private implicit val rwAccessToken: ReadWriter[AccessToken] = macroRW
+  private given rwAccessToken: ReadWriter[AccessToken] = macroRW
 
   private case class InvoicePreviewRequest(
       accountId: String,
@@ -31,7 +31,7 @@ object ZuoraLive {
       assumeRenewal: String,
       chargeTypeToExclude: String
   )
-  private implicit val rwInvoicePreviewRequest: ReadWriter[InvoicePreviewRequest] = macroRW
+  private given rwInvoicePreviewRequest: ReadWriter[InvoicePreviewRequest] = macroRW
 
   private def performRequestSttpClient4(
       request: Request[String]
@@ -108,7 +108,7 @@ object ZuoraLive {
 
   private def performRequestAndParseAnswer[A](
       request: Request[String]
-  )(implicit reader: Reader[A]): ZIO[Any, ZuoraFetchFailure, A] = {
+  )(using reader: Reader[A]): ZIO[Any, ZuoraFetchFailure, A] = {
     for {
       successfulResponse <- performRequestSttpClient4(request)
       body = successfulResponse.body

@@ -5,7 +5,7 @@ import upickle.default._
 
 case class ZuoraAccountBasicInfo(accountNumber: String)
 object ZuoraAccountBasicInfo {
-  implicit val rwZuoraAccountBasicInfo: ReadWriter[ZuoraAccountBasicInfo] = macroRW
+  given rwZuoraAccountBasicInfo: ReadWriter[ZuoraAccountBasicInfo] = macroRW
 }
 
 case class ZuoraAccount(
@@ -14,5 +14,5 @@ case class ZuoraAccount(
 )
 
 object ZuoraAccount {
-  implicit val rwZuoraAccount: ReadWriter[ZuoraAccount] = macroRW
+  given rwZuoraAccount: ReadWriter[ZuoraAccount] = macroRW
 }

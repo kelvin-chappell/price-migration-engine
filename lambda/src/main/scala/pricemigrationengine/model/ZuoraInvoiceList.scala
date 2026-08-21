@@ -7,7 +7,7 @@ import upickle.default.{ReadWriter, macroRW}
 case class ZuoraInvoiceList(invoiceItems: Seq[ZuoraInvoiceItem])
 
 object ZuoraInvoiceList {
-  implicit val rw: ReadWriter[ZuoraInvoiceList] = macroRW
+  given rw: ReadWriter[ZuoraInvoiceList] = macroRW
 }
 
 /*
@@ -24,7 +24,7 @@ case class ZuoraInvoiceItem(
 )
 
 object ZuoraInvoiceItem {
-  implicit val rw: ReadWriter[ZuoraInvoiceItem] = macroRW
+  given rw: ReadWriter[ZuoraInvoiceItem] = macroRW
 
   def itemsForSubscription(
       invoiceList: ZuoraInvoiceList,

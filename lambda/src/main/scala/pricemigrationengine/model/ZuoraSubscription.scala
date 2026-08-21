@@ -22,5 +22,5 @@ case class ZuoraSubscription(
 )
 
 object ZuoraSubscription {
-  implicit val rwSubscription: ReadWriter[ZuoraSubscription] = macroRW
+  given rwSubscription: ReadWriter[ZuoraSubscription] = macroRW
 }

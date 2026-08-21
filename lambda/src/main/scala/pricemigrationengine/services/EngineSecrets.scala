@@ -22,7 +22,7 @@ case class EngineSecrets(
 
 object EngineSecrets {
 
-  implicit val reader: Reader[EngineSecrets] = macroRW
+  given reader: Reader[EngineSecrets] = macroRW
 
   private lazy val region: regions.Region = regions.Region.EU_WEST_1
 

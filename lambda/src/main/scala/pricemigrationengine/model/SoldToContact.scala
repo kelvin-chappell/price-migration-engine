@@ -8,5 +8,5 @@ case class SoldToContact(
 )
 
 object SoldToContact {
-  implicit val rwSubscription: ReadWriter[SoldToContact] = macroRW
+  given rwSubscription: ReadWriter[SoldToContact] = macroRW
 }

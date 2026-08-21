@@ -55,14 +55,14 @@ class SalesforceClientLiveTest extends munit.FunSuite {
     )
   }
   test("SalesforceClientLive should deserialise correctly the JSON object from Salesforce") {
-    implicit val bigDecimalRW: ReadWriter[BigDecimal] =
+    given bigDecimalRW: ReadWriter[BigDecimal] =
       readwriter[ujson.Value].bimap[BigDecimal](
         bd => ujson.Num(bd.toDouble), // write
         js => js.num // read as number
       )
-    implicit val localDateRW: ReadWriter[LocalDate] =
+    given localDateRW: ReadWriter[LocalDate] =
       readwriter[String].bimap[LocalDate](_.toString, LocalDate.parse)
-    implicit val salesforcePriceRiseRW: ReadWriter[SalesforcePriceRise] = macroRW
+    given salesforcePriceRiseRW: ReadWriter[SalesforcePriceRise] = macroRW
 
     val rawJSON = """{
     |  "Migration_Name__c": "cohortName",

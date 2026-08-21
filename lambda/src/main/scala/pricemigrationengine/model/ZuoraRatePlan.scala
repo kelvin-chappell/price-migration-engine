@@ -15,7 +15,7 @@ case class ZuoraRatePlan(
 )
 
 object ZuoraRatePlan {
-  implicit val rw: ReadWriter[ZuoraRatePlan] = macroRW
+  given rw: ReadWriter[ZuoraRatePlan] = macroRW
 
   def ratePlanToCurrency(ratePlan: ZuoraRatePlan): Option[String] = {
     ratePlan.ratePlanCharges.headOption.map(_.currency)

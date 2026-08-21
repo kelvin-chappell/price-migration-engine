@@ -12,7 +12,7 @@ object CohortStateMachineLive {
 
   private case class StateMachineInput(cohortSpec: CohortSpec)
 
-  private implicit val rw: ReadWriter[StateMachineInput] = macroRW
+  private given rw: ReadWriter[StateMachineInput] = macroRW
 
   val impl: ZLayer[CohortStateMachineConfig with Logging, ConfigFailure, CohortStateMachine] =
     ZLayer.fromZIO {
